@@ -3,11 +3,11 @@ package coinprovider
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"memecoin_trading_bot/app/app_errors"
 	"net/http"
 	"strings"
 )
-
-const jupiter_ultra_api_url = "https://lite-api.jup.ag/ultra/v1"
 
 type MarketData struct {
 	Mint        string  `json:"id"`
@@ -32,12 +32,16 @@ type MarketData struct {
 	} `json:"stats1h"`
 }
 
-func GetMarketDataForAddresses(client *http.Client, addresses []string) ([]MarketData, error) {
+func GetMarketDataForAddresses(client *http.Client, url string, addresses []string) ([]MarketData, error) {
+	if len(addresses) == 0 {
+		return []MarketData{}, nil
+	}
+
 	joined_addresses := strings.Join(addresses, ",")
 
-	url := fmt.Sprintf("%s/search?query=%s", jupiter_ultra_api_url, joined_addresses)
+	url_with_query := fmt.Sprintf("%s/search?query=%s", url, joined_addresses)
 
-	res, err := client.Get(url)
+	res, err := client.Get(url_with_query)
 	if err != nil {
 		return nil, err
 	}
@@ -46,16 +50,20 @@ func GetMarketDataForAddresses(client *http.Client, addresses []string) ([]Marke
 	decoder := json.NewDecoder(res.Body)
 
 	if res.StatusCode != http.StatusOK {
-		var res_err map[string]any
-
-		if err = decoder.Decode(&res_err); err != nil {
-			return nil, err
+		resp_body, err := io.ReadAll(res.Body)
+		if err != nil {
+			return []MarketData{}, fmt.Errorf(
+				"%w, %s",
+				app_errors.ErrReadingAPIResponse,
+				err,
+			)
 		}
 
 		return nil, fmt.Errorf(
-			"Received status code %d at '/search' in Jupiter. Error: %s",
+			"%w, Status %d at '/search' from Jupiter. Error: %s",
+			app_errors.ErrNonOkStatus,
 			res.StatusCode,
-			err,
+			resp_body,
 		)
 	}
 

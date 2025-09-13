@@ -43,7 +43,7 @@ func TestMemeScanErrors(t *testing.T) {
 				func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(tt.apiStatusCode)
 					fmt.Fprint(w, tt.serverResponse)
-				}
+				},
 			))
 			defer ts.Close()
 
