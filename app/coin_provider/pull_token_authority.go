@@ -1,13 +1,10 @@
 package coinprovider
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
-	"memecoin_trading_bot/app/app_errors"
 	"net/http"
 	"os"
+
+	"memecoin_trading_bot/app/coin_provider/utils"
 )
 
 type paramConfiguration struct {
@@ -63,6 +60,9 @@ type HeliusResponse struct {
 }
 
 func GetTokenAuthorities(client *http.Client, url, mint string) (TokenAuthorities, error) {
+	if mint == "" {
+		return TokenAuthorities{}, nil
+	}
 	rpc_params := newHeliusRPCParams(
 		"getAccountInfo",
 		mint,
@@ -72,41 +72,18 @@ func GetTokenAuthorities(client *http.Client, url, mint string) (TokenAuthoritie
 		newParamConfiguration("jsonParsed"),
 	)
 
-	var buf bytes.Buffer
-
-	if err := json.NewEncoder(&buf).Encode(rpc_params); err != nil {
-		return TokenAuthorities{}, err
-	}
-
-	api_key := "?api-key=" + os.Getenv("HELIUS_API_KEY")
-	url_with_key := url + api_key
-
-	res, err := client.Post(url_with_key, "application/json", &buf)
+	requester, err := utils.NewRequester[HeliusResponse](client, url, http.MethodPost)
 	if err != nil {
 		return TokenAuthorities{}, err
 	}
-	defer res.Body.Close()
 
-	decoder := json.NewDecoder(res.Body)
-
-	if res.StatusCode != http.StatusOK {
-		error_response, err := io.ReadAll(res.Body)
-		if err != nil {
-			return TokenAuthorities{}, fmt.Errorf("%w, %s",
-				app_errors.ErrReadingAPIResponse, err,
-			)
-		}
-
-		return TokenAuthorities{}, fmt.Errorf(
-			"%w, Status: %d while calling Helius 'getAccountInfo'. Error: %s",
-			app_errors.ErrNonOkStatus,
-			res.StatusCode,
-			error_response,
-		)
+	req_with_body, err := requester.AddHeader("ContentType", "application/json").AddQuery("api-key", os.Getenv("HELIUS_API_KEY")).AddBody(rpc_params)
+	if err != nil {
+		return TokenAuthorities{}, err
 	}
 
-	var token_authorities HeliusResponse
-	if err = decoder.Decode(&token_authorities); err != nil {
+	token_authorities, err := req_with_body.Do()
+	if err != nil {
 		return TokenAuthorities{}, err
 	}
 

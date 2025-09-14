@@ -1,9 +1,8 @@
 package main
 
 import (
-	//"fmt"
 	"log"
-	//"memecoin_trading_bot/app/coin_provider"
+	"memecoin_trading_bot/app/db"
 	//"net/http"
 
 	"github.com/joho/godotenv"
@@ -16,6 +15,16 @@ const helius_api_url = "https://mainnet.helius-rpc.com"
 func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Fatalf("Failed to load envs %s", err)
+	}
+
+	db, err := db.NewDB("assets.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = db.Migrate("migrations")
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	//client := http.DefaultClient

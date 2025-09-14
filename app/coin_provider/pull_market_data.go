@@ -1,10 +1,7 @@
 package coinprovider
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
-	"memecoin_trading_bot/app/app_errors"
+	"memecoin_trading_bot/app/coin_provider/utils"
 	"net/http"
 	"strings"
 )
@@ -34,42 +31,18 @@ type MarketData struct {
 
 func GetMarketDataForAddresses(client *http.Client, url string, addresses []string) ([]MarketData, error) {
 	if len(addresses) == 0 {
-		return []MarketData{}, nil
+		return nil, nil
 	}
 
 	joined_addresses := strings.Join(addresses, ",")
 
-	url_with_query := fmt.Sprintf("%s/search?query=%s", url, joined_addresses)
-
-	res, err := client.Get(url_with_query)
+	requester, err := utils.NewRequester[[]MarketData](client, url, http.MethodGet)
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
 
-	decoder := json.NewDecoder(res.Body)
-
-	if res.StatusCode != http.StatusOK {
-		resp_body, err := io.ReadAll(res.Body)
-		if err != nil {
-			return []MarketData{}, fmt.Errorf(
-				"%w, %s",
-				app_errors.ErrReadingAPIResponse,
-				err,
-			)
-		}
-
-		return nil, fmt.Errorf(
-			"%w, Status %d at '/search' from Jupiter. Error: %s",
-			app_errors.ErrNonOkStatus,
-			res.StatusCode,
-			resp_body,
-		)
-	}
-
-	var tokens_market_data []MarketData
-
-	if err = decoder.Decode(&tokens_market_data); err != nil {
+	tokens_market_data, err := requester.AddPath("/search").AddQuery("query", joined_addresses).Do()
+	if err != nil {
 		return nil, err
 	}
 

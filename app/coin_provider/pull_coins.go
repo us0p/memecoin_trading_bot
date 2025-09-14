@@ -1,11 +1,9 @@
 package coinprovider
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
-	"memecoin_trading_bot/app/app_errors"
 	"net/http"
+
+	"memecoin_trading_bot/app/coin_provider/utils"
 )
 
 type Call struct {
@@ -19,35 +17,12 @@ type MemeScanResponse struct {
 }
 
 func GetGambleTokens(client *http.Client, url string) ([]Call, error) {
-	res, err := client.Get(url)
+	requester, err := utils.NewRequester[MemeScanResponse](client, url, http.MethodGet)
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
-	decoder := json.NewDecoder(res.Body)
 
-	if res.StatusCode != http.StatusOK {
-		err_resp, err := io.ReadAll(res.Body)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"%w: %s",
-				app_errors.ErrReadingAPIResponse,
-				err,
-			)
-		}
-
-		return nil, fmt.Errorf(
-			"%w, Received status: %d from MemeScan API. %s",
-			app_errors.ErrNonOkStatus,
-			res.StatusCode,
-			err_resp,
-		)
-	}
-
-	var memescan_response MemeScanResponse
-
-	err = decoder.Decode(&memescan_response)
-
+	memescan_response, err := requester.Do()
 	if err != nil {
 		return nil, err
 	}
