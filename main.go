@@ -1,12 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"memecoin_trading_bot/app/constants"
 	"memecoin_trading_bot/app/db"
-	"memecoin_trading_bot/app/notification"
-	"net/http"
+	//"net/http"
 
 	"github.com/joho/godotenv"
 )
@@ -26,13 +23,5 @@ func main() {
 		log.Fatal(err)
 	}
 
-	client := http.DefaultClient
-
-	nf_state := notification.NewNotificationState()
-
-	nf_state.RecordError("token-asdf", notification.PullCoin, fmt.Errorf("Test Error 1"), notification.Core)
-	nf_state.RecordError("token-asdf", notification.PullCoin, fmt.Errorf("Test Error 2"), notification.Core)
-	nf_state.RecordError("token-asdf", notification.PullCoin, fmt.Errorf("Test Error 3"), notification.Core)
-
-	nf_state.SendNotifications(client, constants.TELEGRAM_API_URL)
+	//client := http.DefaultClient
 }

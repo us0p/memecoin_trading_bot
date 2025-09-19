@@ -21,7 +21,6 @@ func NewNotificationState() Notifications {
 
 func (n Notifications) notifyTelegram(client *http.Client, telegram_url, message string) error {
 	url_with_token := telegram_url + os.Getenv("TELEGRAM_TOKEN")
-
 	requester, err := utils.NewRequester[any](client, url_with_token, http.MethodGet)
 	if err != nil {
 		return err
@@ -63,15 +62,15 @@ func (n Notifications) SendNotifications(client *http.Client, telegram_url strin
 
 	for _, report_queue := range reports {
 		var wg sync.WaitGroup
-		for idx, report := range report_queue {
-			wg.Add(idx)
-			go func(idx int, report string) {
+		for _, report := range report_queue {
+			wg.Add(1)
+			go func(report string) {
 				defer wg.Done()
 				err := n.notifyTelegram(client, telegram_url, report)
 				if err != nil {
 					log.Printf("Error while sending telegram message. ERROR: %s\n", err)
 				}
-			}(idx, report)
+			}(report)
 		}
 		wg.Wait()
 	}
@@ -153,9 +152,9 @@ func (n Notifications) errReport() []string {
 
 	for idx, err := range relevantErrors {
 		reports[idx] = fmt.Sprintf(`*ERROR*
-			- Severity: %v
-			- Started at: %s
-			- Message: %s
+			- *Severity*: %v
+			- *Started at*: %s
+			- *Message*: %s
 			`,
 			err.ErrSeverity,
 			err.StartedAt.Format(time_rep),
