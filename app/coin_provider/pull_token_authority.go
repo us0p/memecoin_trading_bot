@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"os"
 
-	"memecoin_trading_bot/app/coin_provider/utils"
+	"memecoin_trading_bot/app/utils"
 )
 
 type paramConfiguration struct {
@@ -45,6 +45,11 @@ type TokenAuthorities struct {
 	// If they're empty, they're not enabled.
 	FreezeAuthority string `json:"freezeAuthority"`
 	MintAuthority   string `json:"mintAuthority"`
+	Mint            string `json:"mint"`
+}
+
+func (t TokenAuthorities) GetTokenMint() string {
+	return t.Mint
 }
 
 type HeliusResponse struct {
@@ -77,7 +82,10 @@ func GetTokenAuthorities(client *http.Client, url, mint string) (TokenAuthoritie
 		return TokenAuthorities{}, err
 	}
 
-	req_with_body, err := requester.AddHeader("ContentType", "application/json").AddQuery("api-key", os.Getenv("HELIUS_API_KEY")).AddBody(rpc_params)
+	requester.AddHeader("ContentType", "application/json")
+	requester.AddQuery("api-key", os.Getenv("HELIUS_API_KEY"))
+	req_with_body, err := requester.AddBody(rpc_params)
+
 	if err != nil {
 		return TokenAuthorities{}, err
 	}
@@ -86,6 +94,8 @@ func GetTokenAuthorities(client *http.Client, url, mint string) (TokenAuthoritie
 	if err != nil {
 		return TokenAuthorities{}, err
 	}
+
+	token_authorities.Result.Value.Data.Parsed.Info.Mint = mint
 
 	return token_authorities.Result.Value.Data.Parsed.Info, nil
 }

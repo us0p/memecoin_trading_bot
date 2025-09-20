@@ -3,13 +3,21 @@ package coinprovider
 import (
 	"net/http"
 
-	"memecoin_trading_bot/app/coin_provider/utils"
+	"memecoin_trading_bot/app/utils"
 )
+
+type HasMint interface {
+	GetTokenMint() string
+}
 
 type Call struct {
 	Mint      string `json:"tokenAddress"`
 	Symbol    string `json:"tokenSymbol"`
 	CreatedAt string `json:"createdAt"`
+}
+
+func (c Call) GetTokenMint() string {
+	return c.Mint
 }
 
 type MemeScanResponse struct {

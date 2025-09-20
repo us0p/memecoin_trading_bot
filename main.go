@@ -2,8 +2,12 @@ package main
 
 import (
 	"log"
+	"memecoin_trading_bot/app/constants"
 	"memecoin_trading_bot/app/db"
-	//"net/http"
+	"memecoin_trading_bot/app/notification"
+	"memecoin_trading_bot/app/workflows"
+
+	"net/http"
 
 	"github.com/joho/godotenv"
 )
@@ -23,5 +27,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	//client := http.DefaultClient
+	client := http.DefaultClient
+	nf_state := notification.NewNotificationState()
+
+	workflows.PullTokens(client, &db, &nf_state)
+
+	nf_state.SendNotifications(client, constants.TELEGRAM_API_URL)
 }

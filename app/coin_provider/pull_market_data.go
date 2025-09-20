@@ -1,7 +1,7 @@
 package coinprovider
 
 import (
-	"memecoin_trading_bot/app/coin_provider/utils"
+	"memecoin_trading_bot/app/utils"
 	"net/http"
 	"strings"
 )
@@ -27,6 +27,10 @@ type MarketData struct {
 		NumOrganicBuyers  int     `json:"numOrganicBuyers"`
 		NumNetBuyers      int     `json:"numNetBuyers"`
 	} `json:"stats1h"`
+}
+
+func (m MarketData) GetTokenMint() string {
+	return m.Mint
 }
 
 func GetMarketDataForAddresses(client *http.Client, url string, addresses []string) ([]MarketData, error) {

@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"memecoin_trading_bot/app/entities"
 	"strings"
 )
@@ -39,12 +40,21 @@ func (d *DB) QueryActiveTokens(ctx context.Context) ([]entities.Token, error) {
 func (d *DB) QueryExistingTokensFromSlice(ctx context.Context, mints []string) ([]string, error) {
 	var newMints []string
 
-	rows, err := d.db.QueryContext(ctx, `
+	placeholders := make([]string, len(mints))
+	args := make([]any, len(mints))
+	for idx, mint := range mints {
+		placeholders[idx] = "?"
+		args[idx] = mint
+	}
+
+	query := fmt.Sprintf(`
 		SELECT
 			mint
 		FROM token
-		WHERE mint IN (?);
-	`, strings.Join(mints, ","))
+		WHERE mint IN (%s);
+	`, strings.Join(placeholders, ","))
+
+	rows, err := d.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return newMints, err
 	}
