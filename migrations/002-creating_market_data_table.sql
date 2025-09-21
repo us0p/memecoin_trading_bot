@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS market_data (
     priced_at DATETIME,
     price_usd DOUBLE,
     liquidity DOUBLE,
-    holder_count DOUBLE,
+    holder_count INT,
     market_cap DOUBLE,
     volume_change_1h DOUBLE,
     buy_volume_1h DOUBLE,

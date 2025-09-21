@@ -15,7 +15,7 @@ import (
 )
 
 func validateTradeOpportunity(mkData coinprovider.MarketData) bool {
-	if mkData.HolderCount >= 1000 && mkData.Liquidity >= 500000 {
+	if mkData.HolderCount >= 1000 && mkData.Liquidity >= 50000 {
 		return true
 	}
 	return false
@@ -167,6 +167,18 @@ func PullTokens(
 			)
 			return
 		}
+	}
+
+	if err = db_client.InsertMarketDataBulk(
+		ctx,
+		mk_data,
+	); err != nil {
+		nf_state.RecordError(
+			"",
+			notification.DatabaseOp,
+			err,
+			notification.Fatal,
+		)
 	}
 }
 

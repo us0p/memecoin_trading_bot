@@ -1,11 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	coinprovider "memecoin_trading_bot/app/coin_provider"
 	"memecoin_trading_bot/app/constants"
 	"memecoin_trading_bot/app/db"
-	"memecoin_trading_bot/app/notification"
-	"memecoin_trading_bot/app/workflows"
+	//"memecoin_trading_bot/app/notification"
+	//"memecoin_trading_bot/app/workflows"
 
 	"net/http"
 
@@ -28,11 +30,18 @@ func main() {
 	}
 
 	client := http.DefaultClient
-	nf_state := notification.NewNotificationState()
+	//nf_state := notification.NewNotificationState()
 
-	workflows.PullTokens(client, &db, &nf_state)
-	workflows.GetTradeOpportunityMarketData(client, &db, &nf_state)
-	workflows.GetTradeOpportunityLargestHolders(client, &db, &nf_state)
+	dt, err := coinprovider.GetTradeTransaction(
+		client,
+		constants.JUPITER_ULTRA_API_URL,
+		"5zCETicUCJqJ5Z3wbfFPZqtSpHPYqnggs1wX7ZRpump",
+		1000000000,
+	)
 
-	nf_state.SendNotifications(client, constants.TELEGRAM_API_URL)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("%+v\n", dt)
 }

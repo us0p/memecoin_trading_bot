@@ -29,6 +29,7 @@ const (
 	TokenDataAgg                = "TOKEN_DATA_AGGREGATION"
 	PullMarketData              = "PULL_MARKET_DATA"
 	LargestHolders              = "LARGEST_HOLDERS"
+	ExecuteTrade                = "EXECUTE_TRADE"
 )
 
 type InMemoryErrorQueueKey struct {

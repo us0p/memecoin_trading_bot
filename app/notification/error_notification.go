@@ -44,7 +44,7 @@ func (n *Notifications) errReport() []string {
 			err.ErrSeverity,
 			err.StartedAt.Format(constants.NOTIFICATION_TIME_REP),
 			fmt.Sprintf("`%s`", err.workflow),
-			err.Err.Error(),
+			fmt.Sprintf("`%s`", err.Err.Error()),
 		)
 	}
 
