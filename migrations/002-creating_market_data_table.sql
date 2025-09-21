@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS market_data (
     mint VARCHAR(44),
+    total_supply DOUBLE,
     priced_at DATETIME,
     price_usd DOUBLE,
     liquidity DOUBLE,

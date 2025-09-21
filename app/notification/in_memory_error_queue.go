@@ -27,6 +27,8 @@ const (
 	TokenAuthorityEval          = "TOKEN_AUTHORITY_EVAL"
 	DatabaseOp                  = "DATABASE_OPERATION"
 	TokenDataAgg                = "TOKEN_DATA_AGGREGATION"
+	PullMarketData              = "PULL_MARKET_DATA"
+	LargestHolders              = "LARGEST_HOLDERS"
 )
 
 type InMemoryErrorQueueKey struct {

@@ -37,6 +37,33 @@ func (d *DB) QueryActiveTokens(ctx context.Context) ([]entities.Token, error) {
 	return tokens, nil
 }
 
+func (d *DB) GetLatestTradeOpp(ctx context.Context) ([]string, error) {
+	rows, err := d.db.QueryContext(
+		ctx,
+		`SELECT 
+			mint 
+		 FROM token 
+		 WHERE trade_opp IS TRUE
+		 ORDER BY created_at DESC
+		 LIMIT 10;`,
+	)
+
+	last_trade_opp_addrss := make([]string, 0)
+	if err != nil {
+		return last_trade_opp_addrss, err
+	}
+
+	for rows.Next() {
+		var mint_addrs string
+		if err = rows.Scan(&mint_addrs); err != nil {
+			return last_trade_opp_addrss, err
+		}
+		last_trade_opp_addrss = append(last_trade_opp_addrss, mint_addrs)
+	}
+
+	return last_trade_opp_addrss, nil
+}
+
 func (d *DB) QueryExistingTokensFromSlice(ctx context.Context, mints []string) ([]string, error) {
 	var newMints []string
 

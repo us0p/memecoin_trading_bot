@@ -31,6 +31,8 @@ func main() {
 	nf_state := notification.NewNotificationState()
 
 	workflows.PullTokens(client, &db, &nf_state)
+	workflows.GetTradeOpportunityMarketData(client, &db, &nf_state)
+	workflows.GetTradeOpportunityLargestHolders(client, &db, &nf_state)
 
 	nf_state.SendNotifications(client, constants.TELEGRAM_API_URL)
 }

@@ -8,6 +8,7 @@ import (
 
 type MarketData struct {
 	Mint        string  `json:"id"`
+	TotalSupply float64 `json:"totalSupply"`
 	Twitter     string  `json:"twitter"`
 	Website     string  `json:"website"`
 	Telegram    string  `json:"telegram"`
