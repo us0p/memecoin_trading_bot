@@ -28,13 +28,13 @@ func (hrp *heliusRPCParams) addParamConfig(config paramConfiguration) {
 	hrp.Params = append(hrp.Params, config)
 }
 
-func newHeliusRPCParams(method string, mint string) heliusRPCParams {
+func newHeliusRPCParams(method, param string) heliusRPCParams {
 	return heliusRPCParams{
 		"2.0",
 		"1",
 		method,
 		[]any{
-			mint,
+			param,
 		},
 	}
 }
