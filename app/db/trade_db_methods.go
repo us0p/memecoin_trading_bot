@@ -6,7 +6,7 @@ func (d *DB) GetOngoingTradesBalance(ctx context.Context) (float64, error) {
 	row := d.db.QueryRowContext(
 		ctx,
 		`SELECT 
-			SUM(solana_amount) 
+			COALESCE(SUM(solana_amount), 0)
 		 FROM trade 
 		 WHERE trade_ended_at IS NULL;`,
 	)
