@@ -21,3 +21,7 @@ func GetPrvKey() (solana.PrivateKey, error) {
 func ToLamports(sol_amount float64) int {
 	return int(math.Round(sol_amount * float64(LAMPORT_PER_SOL)))
 }
+
+func FromLamports(asset_lamports int) float64 {
+	return float64(asset_lamports) / float64(LAMPORT_PER_SOL)
+}

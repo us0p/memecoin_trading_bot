@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"memecoin_trading_bot/app/utils"
 	"net/http"
+	"strconv"
 )
 
 type SwapInfo struct {
@@ -34,6 +35,19 @@ type JupiterGetOrderResponse struct {
 	ExpireAt             string      `json:"expireAt"`
 	ErrorCode            int         `json:"errorCode"`
 	ErrorMessage         string      `json:"errorMessage"`
+}
+
+func (j JupiterGetOrderResponse) GetTotalFeeAmount() (int, error) {
+	total := 0
+	for _, plan := range j.RoutePln {
+		as_int, err := strconv.Atoi(plan.SwapInf.FeeAmount)
+		if err != nil {
+			return 0, err
+		}
+		total += as_int
+	}
+
+	return total, nil
 }
 
 const sol_mint_addrs = "So11111111111111111111111111111111111111112"

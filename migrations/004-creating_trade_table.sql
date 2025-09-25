@@ -4,11 +4,12 @@ CREATE TABLE IF NOT EXISTS trade (
     trade_started_at DATETIME, -- order execution
     issued_trade_end_at DATETIME, -- order execution
     trade_ended_at DATETIME, -- order execution
-    issued_trade_start_token_usd_price DOUBLE, -- last mk data entry for token
-    issued_trade_end_token_usd_price DOUBLE, -- last mk data entry for token
-    entry_token_usd_price DOUBLE,
-    exit_token_usd_price DOUBLE,
+    issued_trade_start_token_usd_price DOUBLE, -- last mk data entry for token, AFTER order execution
+    issued_trade_end_token_usd_price DOUBLE, -- last mk data entry for token, AFTER order execution
+    entry_token_usd_price DOUBLE, -- make call for price
+    exit_token_usd_price DOUBLE, -- make call for price
     solana_amount DOUBLE, -- order creation
-    executed_solana_amount DOUBLE, -- order creation
-    total_fees DOUBLE -- order creation
+    total_fees DOUBLE, -- order creation
+    exepected_token_amount, -- order creation
+    executed_token_amount DOUBLE -- order execution
 );

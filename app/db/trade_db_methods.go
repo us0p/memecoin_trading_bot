@@ -1,6 +1,57 @@
 package db
 
-import "context"
+import (
+	"context"
+	"memecoin_trading_bot/app/constants"
+	"memecoin_trading_bot/app/entities"
+)
+
+func (d *DB) InsertTrade(ctx context.Context, trade entities.Trade) error {
+	_, err := d.db.ExecContext(ctx, `
+		INSERT INTO trade
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`,
+		trade.Mint,
+		trade.IssuedTradeStartAt.Format(constants.JAVASCRIPT_TIME_REP),
+		trade.TradeStartedAt.Format(constants.JAVASCRIPT_TIME_REP),
+		trade.IssuedTradeEndAt.Format(constants.JAVASCRIPT_TIME_REP),
+		trade.TradeEndedAt.Format(constants.JAVASCRIPT_TIME_REP),
+		trade.IssuedTradeStartTokenUsdPrice,
+		trade.IssuedTradeEndTokenUsdPrice,
+		trade.EntryTokenUsdPrice,
+		trade.ExitTokenUsdPrice,
+		trade.SolanaAmount,
+		trade.TotalFees,
+		trade.ExpectedTokenAmount,
+		trade.ExecutedTokenAmount,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *DB) GetLastPriceForToken(ctx context.Context, mint string) (float64, error) {
+	row := d.db.QueryRowContext(
+		ctx,
+		`SELECT
+			price_usd
+		 FROM market_data
+		 WHERE price_usd IS NOT NULL
+		 	AND price_usd != 0.0
+		 ORDER BY priced_at DESC
+		 LIMIT 1;`,
+	)
+
+	var last_price float64
+	if err := row.Scan(&last_price); err != nil {
+		return last_price, err
+	}
+
+	return last_price, nil
+}
 
 func (d *DB) GetOngoingTradesBalance(ctx context.Context) (float64, error) {
 	row := d.db.QueryRowContext(
