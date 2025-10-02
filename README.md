@@ -5,13 +5,12 @@
 - each RPC call costs 1 credit.
 
 ## TODO
-- Create SOL USD price web socket consumer.
-- Wil determine the execution price of trades by performing the following math:
-    - (Order creation) TokenPerSOL = OutputAmount / InputAmount (represents the amount of tokens per unit of SOL)
-    - SOL price (retrieved from global state updated by WebSocket) / TokenPerSOL
-    - This determines the issued usd price for the token
-    - Might also take the USD price for the last MK Data entry for the token in the database.
-
-    - (Order execution) If OutputAmount (creation) != OutputAmount (exec) then there's a price diff.
-    - (TokenPerSOL = OutputAmount / InputAmount) / SOL price
-    - Determines the executed price for the token
+- Re-think about trade storing, maybe storing separate operations instead 
+  of updating the trade entry might be more clean and easier to implement.
+- Must also rethinkg structure of the table to store the most relevant data
+  that we receive from the provider.
+    - Must add buy fee and sell fee to trade entries in the database.
+- Create job scheduler.
+- Determine how trades are going to be executed in the current workflow.
+- Must add thorough tests.
+- Errors not attached to a specific token don't use the 'mint' field.

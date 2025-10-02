@@ -50,14 +50,13 @@ func (j JupiterGetOrderResponse) GetTotalFeeAmount() (int, error) {
 	return total, nil
 }
 
-const sol_mint_addrs = "So11111111111111111111111111111111111111112"
-
 func GetTradeTransaction(
 	client *http.Client,
 	url,
 	taker_addrs,
-	mint string,
-	amount int,
+	input_mint,
+	output_mint string,
+	input_amount int,
 ) (JupiterGetOrderResponse, error) {
 	requester, err := utils.NewRequester[JupiterGetOrderResponse](
 		client,
@@ -70,10 +69,10 @@ func GetTradeTransaction(
 	}
 
 	requester.AddPath("/order")
-	requester.AddQuery("inputMint", sol_mint_addrs)
-	requester.AddQuery("outputMint", mint)
+	requester.AddQuery("inputMint", input_mint)
+	requester.AddQuery("outputMint", output_mint)
 	requester.AddQuery("taker", taker_addrs)
-	requester.AddQuery("amount", fmt.Sprint(amount))
+	requester.AddQuery("amount", fmt.Sprint(input_amount))
 
 	token_order_dt, err := requester.Do()
 	if err != nil {

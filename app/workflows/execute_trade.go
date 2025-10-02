@@ -23,11 +23,30 @@ type tradeOrderCreation struct {
 	Transaction string
 }
 
+func newTradeOrderCreation(
+	mint string,
+	solanaAmountAsInt,
+	totalFees,
+	expectedTokenAmountAsInt int,
+	transaction string,
+) tradeOrderCreation {
+	return tradeOrderCreation{
+		Trade: entities.Trade{
+			Mint:                mint,
+			SolanaAmount:        utils.FromLamports(solanaAmountAsInt),
+			TotalFees:           utils.FromLamports(totalFees),
+			ExpectedTokenAmount: utils.FromLamports(expectedTokenAmountAsInt),
+		},
+		Transaction: transaction,
+	}
+}
+
 func ExecuteTrade(
 	http_client *http.Client,
 	db_client *db.DB,
 	nf_state *notification.Notifications,
 	mint string,
+	order Order,
 ) {
 	pvk, err := utils.GetPrvKey()
 	if err != nil {
@@ -45,6 +64,7 @@ func ExecuteTrade(
 		db_client,
 		pvk,
 		mint,
+		order,
 	)
 	if err != nil {
 		nf_state.RecordError(
@@ -89,6 +109,7 @@ func ExecuteTrade(
 	}
 }
 
+// Using the signed transaction. Executes the order with Jupiter API.
 func executeOrder(
 	ctx context.Context,
 	http_client *http.Client,
@@ -151,7 +172,40 @@ func signTransaction(pvk solana.PrivateKey, tradeOrder *tradeOrderCreation) erro
 	return nil
 }
 
+type Order string
+
+const (
+	BUY  Order = "buy"
+	SELL Order = "sell"
+)
+
+type orderCb func(*http.Client, *db.DB, solana.PrivateKey, string) (tradeOrderCreation, error)
+
+type orderStrategies map[Order]orderCb
+
+func newOrderStrategies(buyCb, sellCb orderCb) orderStrategies {
+	strategies := make(map[Order]orderCb)
+
+	strategies[BUY] = buyCb
+	strategies[SELL] = sellCb
+
+	return strategies
+}
+
+// Create order by calling Jupiter 'order' API.
+// Returns a partial TradeOrder with the base64 encoded Transaction.
 func getOrder(
+	http_client *http.Client,
+	db_client *db.DB,
+	pvk solana.PrivateKey,
+	mint string,
+	order Order,
+) (tradeOrderCreation, error) {
+	orderStats := newOrderStrategies(buyStrategy, sellStrategy)
+	return orderStats[order](http_client, db_client, pvk, mint)
+}
+
+func buyStrategy(
 	http_client *http.Client,
 	db_client *db.DB,
 	pvk solana.PrivateKey,
@@ -168,6 +222,7 @@ func getOrder(
 		http_client,
 		constants.JUPITER_ULTRA_API_URL,
 		pvk.PublicKey().String(),
+		constants.SOL_MINT_ADDRS,
 		mint,
 		utils.ToLamports(sol_amount),
 	)
@@ -197,15 +252,82 @@ func getOrder(
 		return tradeOrderCreation{}, err
 	}
 
-	return tradeOrderCreation{
-		Trade: entities.Trade{
-			Mint:                mint,
-			SolanaAmount:        utils.FromLamports(solanaAmountAsInt),
-			TotalFees:           utils.FromLamports(totalFees),
-			ExpectedTokenAmount: utils.FromLamports(expectedTokenAmountAsInt),
-		},
-		Transaction: agg_resp.Transaction,
-	}, nil
+	return newTradeOrderCreation(
+		mint,
+		solanaAmountAsInt,
+		totalFees,
+		expectedTokenAmountAsInt,
+		agg_resp.Transaction,
+	), nil
+}
+
+func sellStrategy(
+	http_client *http.Client,
+	db_client *db.DB,
+	pvk solana.PrivateKey,
+	mint string,
+) (tradeOrderCreation, error) {
+	wallet_holdings, err := coinprovider.GetOnChainWalletHoldings(
+		http_client,
+		constants.JUPITER_ULTRA_API_URL,
+		pvk.PublicKey().String(),
+	)
+	if err != nil {
+		return tradeOrderCreation{}, err
+	}
+
+	token_holdings, ok := wallet_holdings.Tokens[mint]
+	if !ok {
+		return tradeOrderCreation{}, fmt.Errorf(
+			"Token mint `%s` is not present in wallet holdings",
+			mint,
+		)
+	}
+	token_amount, err := strconv.Atoi(token_holdings.Amount)
+	if err != nil {
+		return tradeOrderCreation{}, err
+	}
+	agg_resp, err := coinprovider.GetTradeTransaction(
+		http_client,
+		constants.JUPITER_ULTRA_API_URL,
+		pvk.PublicKey().String(),
+		mint,
+		constants.SOL_MINT_ADDRS,
+		token_amount,
+	)
+	if err != nil {
+		return tradeOrderCreation{}, err
+	}
+	if agg_resp.ErrorCode != 0 {
+		return tradeOrderCreation{}, fmt.Errorf(
+			"Received the following error for token %s while generating transaction: %s.",
+			mint,
+			agg_resp.ErrorMessage,
+		)
+	}
+
+	totalFees, err := agg_resp.GetTotalFeeAmount()
+	if err != nil {
+		return tradeOrderCreation{}, err
+	}
+
+	tokenAmountAsInt, err := strconv.Atoi(agg_resp.InAmount)
+	if err != nil {
+		return tradeOrderCreation{}, err
+	}
+
+	expectedSolanaAmountAsInt, err := strconv.Atoi(agg_resp.OutAmount)
+	if err != nil {
+		return tradeOrderCreation{}, err
+	}
+
+	return newTradeOrderCreation(
+		mint,
+		tokenAmountAsInt,
+		totalFees,
+		expectedSolanaAmountAsInt,
+		agg_resp.Transaction,
+	), nil
 }
 
 func logTradeSimulation(simulationResult coinprovider.TransactionSimulation) {
