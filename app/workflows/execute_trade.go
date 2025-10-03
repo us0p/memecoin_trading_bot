@@ -172,13 +172,6 @@ func signTransaction(pvk solana.PrivateKey, tradeOrder *tradeOrderCreation) erro
 	return nil
 }
 
-type Order string
-
-const (
-	BUY  Order = "buy"
-	SELL Order = "sell"
-)
-
 type orderCb func(*http.Client, *db.DB, solana.PrivateKey, string) (tradeOrderCreation, error)
 
 type orderStrategies map[Order]orderCb

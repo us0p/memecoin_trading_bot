@@ -1,15 +1,22 @@
 CREATE TABLE IF NOT EXISTS trade (
-    mint VARCHAR(44) PRIMARY KEY, -- order creation
-    issued_trade_start_at DATETIME, -- order execution
-    trade_started_at DATETIME, -- order execution
-    issued_trade_end_at DATETIME, -- order execution
-    trade_ended_at DATETIME, -- order execution
-    issued_trade_start_token_usd_price DOUBLE, -- last mk data entry for token, AFTER order execution
-    issued_trade_end_token_usd_price DOUBLE, -- last mk data entry for token, AFTER order execution
-    entry_token_usd_price DOUBLE, -- make call for price
-    exit_token_usd_price DOUBLE, -- make call for price
-    solana_amount DOUBLE, -- order creation
-    total_fees DOUBLE, -- order creation
-    exepected_token_amount, -- order creation
-    executed_token_amount DOUBLE -- order execution
+    mint VARCHAR(44),                        -- Order creation
+    operation VARCHAR,                       -- Order creation
+    slippage_bps INTEGER,                    -- Order creation
+    input_amount_lamports INTEGER,           -- Order creation
+    expected_output_amount_lamports INTEGER, -- Order creation
+    input_usd_price DOUBLE,                  -- Order creation
+    total_fee_lamports INTEGER,              -- disconted from the trade on buy, from wallet on sell.
+    expected_token_usd_price DOUBLE,         -- get from database during order creation.
+    issued_order_at DATETIME,                -- Order execution
+    received_order_response_at DATETIME,     -- Order execution
+    executed_output_amount_lamports INTEGER, -- Order execution
+    executed_token_usd_price DOUBLE,         -- Order execution
+    -- for buy
+    -- (sol) input usd price after fees / executed token amount
+    -- for sell
+    -- (token) input usd price / executed token amount
+    CONSTRAINT trade_pk PRIMARY KEY (
+	mint,
+	operation
+    )
 );

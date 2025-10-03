@@ -2,19 +2,24 @@ package entities
 
 import "time"
 
+type Order string
+
+const (
+	BUY  Order = "buy"
+	SELL Order = "sell"
+)
+
 type Trade struct {
-	Mint                          string
-	IssuedTradeStartAt            time.Time
-	TradeStartedAt                time.Time
-	IssuedTradeEndAt              time.Time
-	TradeEndedAt                  time.Time
-	IssuedTradeStartTokenUsdPrice float64
-	IssuedTradeEndTokenUsdPrice   float64
-	EntryTokenUsdPrice            float64
-	ExitTokenUsdPrice             float64
-	SolanaAmount                  float64
-	ExecutedSolanaAmount          float64
-	TotalFees                     float64
-	ExpectedTokenAmount           float64
-	ExecutedTokenAmount           float64
+	Mint                         string
+	operation                    Order
+	SlippageBPS                  int
+	InputAmountLamports          int
+	ExpectedOutputAmountLamports int
+	InputUSDPrice                float64
+	TotalFeeLamports             int
+	ExpectedTokenUSDPrice        float64
+	IssuedOrderAt                time.Time
+	ReceivedOrderResponseAt      time.Time
+	ExecutedOutputAmountLamports int
+	ExecutedTokenUSDPrice        float64
 }
