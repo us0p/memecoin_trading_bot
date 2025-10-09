@@ -2,16 +2,21 @@ package entities
 
 import "time"
 
-type Order string
+type Operation string
 
 const (
-	BUY  Order = "buy"
-	SELL Order = "sell"
+	BUY  Operation = "buy"
+	SELL Operation = "sell"
 )
+
+type Order struct {
+	Mint string
+	Op   Operation
+}
 
 type Trade struct {
 	Mint                         string
-	operation                    Order
+	Operation                    Operation
 	SlippageBPS                  int
 	InputAmountLamports          int
 	ExpectedOutputAmountLamports int

@@ -24,18 +24,22 @@ type tradeOrderCreation struct {
 }
 
 func newTradeOrderCreation(
-	mint string,
-	solanaAmountAsInt,
-	totalFees,
-	expectedTokenAmountAsInt int,
+	order entities.Order,
+	slippageBPS,
+	inputAmountLamports,
+	totalFeeLamport,
+	expectedOutputAmountLamports int,
+	inputUSDPrice float64,
 	transaction string,
 ) tradeOrderCreation {
 	return tradeOrderCreation{
 		Trade: entities.Trade{
-			Mint:                mint,
-			SolanaAmount:        utils.FromLamports(solanaAmountAsInt),
-			TotalFees:           utils.FromLamports(totalFees),
-			ExpectedTokenAmount: utils.FromLamports(expectedTokenAmountAsInt),
+			Mint:                         order.Mint,
+			Operation:                    order.Op,
+			InputAmountLamports:          inputAmountLamports,
+			TotalFeeLamports:             totalFeeLamport,
+			ExpectedOutputAmountLamports: expectedOutputAmountLamports,
+			InputUSDPrice:                inputUSDPrice,
 		},
 		Transaction: transaction,
 	}
@@ -45,8 +49,7 @@ func ExecuteTrade(
 	http_client *http.Client,
 	db_client *db.DB,
 	nf_state *notification.Notifications,
-	mint string,
-	order Order,
+	order entities.Order,
 ) {
 	pvk, err := utils.GetPrvKey()
 	if err != nil {
@@ -63,12 +66,11 @@ func ExecuteTrade(
 		http_client,
 		db_client,
 		pvk,
-		mint,
 		order,
 	)
 	if err != nil {
 		nf_state.RecordError(
-			mint,
+			order.Mint,
 			notification.ExecuteTrade,
 			err,
 			notification.Core,
@@ -78,7 +80,7 @@ func ExecuteTrade(
 
 	if err = signTransaction(pvk, &tradeOrderCreation); err != nil {
 		nf_state.RecordError(
-			mint,
+			order.Mint,
 			notification.ExecuteTrade,
 			err,
 			notification.Core,
@@ -90,7 +92,7 @@ func ExecuteTrade(
 	trade, err := executeOrder(ctx, http_client, db_client, &tradeOrderCreation)
 	if err != nil {
 		nf_state.RecordError(
-			mint,
+			order.Mint,
 			notification.ExecuteTrade,
 			err,
 			notification.Core,
@@ -100,7 +102,7 @@ func ExecuteTrade(
 
 	if err = db_client.InsertTrade(ctx, trade); err != nil {
 		nf_state.RecordError(
-			mint,
+			order.Mint,
 			notification.ExecuteTrade,
 			err,
 			notification.Core,
@@ -116,7 +118,7 @@ func executeOrder(
 	db_client *db.DB,
 	tradeOrder *tradeOrderCreation,
 ) (entities.Trade, error) {
-	tradeOrder.Trade.IssuedTradeStartAt = time.Now()
+	tradeOrder.Trade.IssuedOrderAt = time.Now()
 
 	simu, err := coinprovider.SimulateTransactionExecution(
 		http_client,
@@ -127,14 +129,14 @@ func executeOrder(
 		return entities.Trade{}, err
 	}
 
-	tradeOrder.Trade.TradeStartedAt = time.Now()
+	tradeOrder.Trade.ReceivedOrderResponseAt = time.Now()
 
 	last_price, err := db_client.GetLastPriceForToken(ctx, tradeOrder.Trade.Mint)
 	if err != nil {
 		return entities.Trade{}, err
 	}
 
-	tradeOrder.Trade.IssuedTradeStartTokenUsdPrice = last_price
+	tradeOrder.Trade.ExpectedTokenUSDPrice = last_price
 
 	mk_data, err := coinprovider.GetMarketDataForAddresses(
 		http_client,
@@ -145,7 +147,8 @@ func executeOrder(
 		return entities.Trade{}, err
 	}
 
-	tradeOrder.Trade.EntryTokenUsdPrice = mk_data[0].PriceUsd
+	// apply math here.
+	tradeOrder.Trade.ExecutedTokenUSDPrice = mk_data[0].PriceUsd
 
 	logTradeSimulation(simu)
 
@@ -174,13 +177,13 @@ func signTransaction(pvk solana.PrivateKey, tradeOrder *tradeOrderCreation) erro
 
 type orderCb func(*http.Client, *db.DB, solana.PrivateKey, string) (tradeOrderCreation, error)
 
-type orderStrategies map[Order]orderCb
+type orderStrategies map[entities.Operation]orderCb
 
 func newOrderStrategies(buyCb, sellCb orderCb) orderStrategies {
-	strategies := make(map[Order]orderCb)
+	strategies := make(map[entities.Operation]orderCb)
 
-	strategies[BUY] = buyCb
-	strategies[SELL] = sellCb
+	strategies[entities.BUY] = buyCb
+	strategies[entities.SELL] = sellCb
 
 	return strategies
 }
@@ -191,11 +194,10 @@ func getOrder(
 	http_client *http.Client,
 	db_client *db.DB,
 	pvk solana.PrivateKey,
-	mint string,
-	order Order,
+	order entities.Order,
 ) (tradeOrderCreation, error) {
-	orderStats := newOrderStrategies(buyStrategy, sellStrategy)
-	return orderStats[order](http_client, db_client, pvk, mint)
+	orderStrats := newOrderStrategies(buyStrategy, sellStrategy)
+	return orderStrats[order.Op](http_client, db_client, pvk, order.Mint)
 }
 
 func buyStrategy(
@@ -246,7 +248,8 @@ func buyStrategy(
 	}
 
 	return newTradeOrderCreation(
-		mint,
+		entities.Order{Mint: mint, Op: entities.BUY},
+		agg_resp.SlippageBps,
 		solanaAmountAsInt,
 		totalFees,
 		expectedTokenAmountAsInt,
