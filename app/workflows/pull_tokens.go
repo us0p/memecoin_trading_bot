@@ -25,6 +25,7 @@ func PullTokens(
 	http_client *http.Client,
 	db_client *db.DB,
 	nf_state *notification.Notifications,
+	orders_chan chan<- entities.Order,
 ) {
 	ctx := context.Background()
 
@@ -108,7 +109,7 @@ func PullTokens(
 		if err != nil {
 			nf_state.RecordError(
 				newToken.Mint,
-				notification.DatabaseOp,
+				notification.PullCoin,
 				err,
 				notification.Fatal,
 			)
@@ -128,6 +129,13 @@ func PullTokens(
 				notification.Fatal,
 			)
 			return
+		}
+		isTradeOpp := validateTradeOpportunity(*token_mk_data)
+		if isTradeOpp {
+			orders_chan <- entities.Order{
+				Mint: newToken.Mint,
+				Op:   entities.BUY,
+			}
 		}
 
 		token_authority_data := get_dt_for_token(
@@ -151,7 +159,7 @@ func PullTokens(
 			CreatedAt:     time_rep,
 			MintEnabled:   token_authority_data.MintAuthority != "",
 			FreezeEnabled: token_authority_data.FreezeAuthority != "",
-			TradeOpp:      validateTradeOpportunity(*token_mk_data),
+			TradeOpp:      isTradeOpp,
 			Twitter:       token_mk_data.Twitter,
 			Site:          token_mk_data.Website,
 			Telegram:      token_mk_data.Telegram,
@@ -161,7 +169,7 @@ func PullTokens(
 		if err != nil {
 			nf_state.RecordError(
 				token.Mint,
-				notification.DatabaseOp,
+				notification.PullCoin,
 				err,
 				notification.Fatal,
 			)
@@ -175,7 +183,7 @@ func PullTokens(
 	); err != nil {
 		nf_state.RecordError(
 			"",
-			notification.DatabaseOp,
+			notification.PullCoin,
 			err,
 			notification.Fatal,
 		)

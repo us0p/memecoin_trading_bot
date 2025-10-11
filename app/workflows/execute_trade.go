@@ -36,6 +36,7 @@ func newTradeOrderCreation(
 		Trade: entities.Trade{
 			Mint:                         order.Mint,
 			Operation:                    order.Op,
+			SlippageBPS:                  slippageBPS,
 			InputAmountLamports:          inputAmountLamports,
 			TotalFeeLamports:             totalFeeLamport,
 			ExpectedOutputAmountLamports: expectedOutputAmountLamports,
@@ -45,7 +46,24 @@ func newTradeOrderCreation(
 	}
 }
 
-func ExecuteTrade(
+func TradeChannelProcesser(
+	http_client *http.Client,
+	db_client *db.DB,
+	nf_state *notification.Notifications,
+	order_chan <-chan entities.Order,
+) {
+	for order := range order_chan {
+		log.Printf("Received new trade opportunity for address: %s\n", order.Mint)
+		go executeTrade(
+			http_client,
+			db_client,
+			nf_state,
+			order,
+		)
+	}
+}
+
+func executeTrade(
 	http_client *http.Client,
 	db_client *db.DB,
 	nf_state *notification.Notifications,
@@ -147,7 +165,6 @@ func executeOrder(
 		return entities.Trade{}, err
 	}
 
-	// apply math here.
 	tradeOrder.Trade.ExecutedTokenUSDPrice = mk_data[0].PriceUsd
 
 	logTradeSimulation(simu)
@@ -253,6 +270,7 @@ func buyStrategy(
 		solanaAmountAsInt,
 		totalFees,
 		expectedTokenAmountAsInt,
+		agg_resp.InUsdValue,
 		agg_resp.Transaction,
 	), nil
 }
@@ -318,10 +336,15 @@ func sellStrategy(
 	}
 
 	return newTradeOrderCreation(
-		mint,
+		entities.Order{
+			Mint: mint,
+			Op:   entities.SELL,
+		},
+		agg_resp.SlippageBps,
 		tokenAmountAsInt,
 		totalFees,
 		expectedSolanaAmountAsInt,
+		agg_resp.InUsdValue,
 		agg_resp.Transaction,
 	), nil
 }

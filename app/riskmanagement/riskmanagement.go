@@ -30,12 +30,12 @@ func GetTradeAmount(http_client *http.Client, db_client *db.DB) (float64, error)
 	}
 
 	ctx := context.Background()
-	ongoing_trades_balance, err := db_client.GetOngoingTradesBalance(ctx)
+	ongoing_trades_balance_lamports, err := db_client.GetOngoingTradesBalanceLamports(ctx)
 	if err != nil {
 		return 0, err
 	}
 
-	total_balance := wallet_balance.UiAmount + ongoing_trades_balance
+	total_balance := wallet_balance.UiAmount + utils.FromLamports(ongoing_trades_balance_lamports)
 
 	trade_amount := total_balance * MAX_TRADE_PERCENTAGE
 	fee_pool := total_balance * WALLET_FEE_PERCENTAGE

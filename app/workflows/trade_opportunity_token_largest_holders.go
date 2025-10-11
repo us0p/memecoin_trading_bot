@@ -15,13 +15,14 @@ func GetTradeOpportunityLargestHolders(
 	http_client *http.Client,
 	db_client *db.DB,
 	nf_state *notification.Notifications,
+	_ chan<- entities.Order,
 ) {
 	ctx := context.Background()
 	latest_trade_opp, err := db_client.GetLatestTradeOpp(ctx)
 	if err != nil {
 		nf_state.RecordError(
 			"",
-			notification.DatabaseOp,
+			notification.LargestHolders,
 			err,
 			notification.Fatal,
 		)
@@ -59,7 +60,7 @@ func GetTradeOpportunityLargestHolders(
 			if err != nil {
 				nf_state.RecordError(
 					mint,
-					notification.DatabaseOp,
+					notification.LargestHolders,
 					err,
 					notification.Fatal,
 				)
@@ -99,7 +100,7 @@ func GetTradeOpportunityLargestHolders(
 	if err = db_client.InsertTopHolderBulk(ctx, tokens_top_holders); err != nil {
 		nf_state.RecordError(
 			"",
-			notification.DatabaseOp,
+			notification.LargestHolders,
 			err,
 			notification.Fatal,
 		)

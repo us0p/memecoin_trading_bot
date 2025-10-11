@@ -30,6 +30,9 @@ func (d *DB) InsertMarketDataBulk(
 	ctx context.Context,
 	marketData []coinprovider.MarketData,
 ) error {
+	if len(marketData) == 0 {
+		return nil
+	}
 	placeholders := make([]string, len(marketData))
 	args := make([]any, 0, len(marketData)*16)
 	for idx, mkd := range marketData {

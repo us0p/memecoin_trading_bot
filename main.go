@@ -2,10 +2,10 @@ package main
 
 import (
 	"log"
-	"memecoin_trading_bot/app/constants"
 	"memecoin_trading_bot/app/db"
+	"memecoin_trading_bot/app/entities"
+	"memecoin_trading_bot/app/job_scheduler"
 	"memecoin_trading_bot/app/notification"
-
 	"memecoin_trading_bot/app/workflows"
 
 	"net/http"
@@ -30,34 +30,37 @@ func main() {
 
 	client := http.DefaultClient
 	nf_state := notification.NewNotificationState()
+	job_scheduler := jobscheduler.NewJobSchedulerMap()
+	order_chan := make(chan entities.Order)
 
-	workflows.PullTokens(
+	job_scheduler.RegisterJob(
+		workflows.PullTokens,
+		"Pull memecoin tokens",
+		jobscheduler.ONE_MINUTE_INTERVAL,
+	)
+	job_scheduler.RegisterJob(
+		workflows.GetTradeOpportunityMarketData,
+		"Pull market data",
+		jobscheduler.FIVE_SECOND_INTERVAL,
+	)
+	job_scheduler.RegisterJob(
+		workflows.GetTradeOpportunityLargestHolders,
+		"Pull largest holders",
+		jobscheduler.FIVE_MINUTE_INTERVAL,
+	)
+
+	log.Printf("Starting job executor...\n")
+	job_scheduler.StartJobExecutor(
 		client,
 		&db,
 		&nf_state,
+		order_chan,
 	)
 
-	workflows.GetTradeOpportunityMarketData(
+	workflows.TradeChannelProcesser(
 		client,
 		&db,
 		&nf_state,
-	)
-
-	workflows.GetTradeOpportunityLargestHolders(
-		client,
-		&db,
-		&nf_state,
-	)
-
-	workflows.ExecuteTrade(
-		client,
-		&db,
-		&nf_state,
-		"5zCETicUCJqJ5Z3wbfFPZqtSpHPYqnggs1wX7ZRpump",
-	)
-
-	nf_state.SendNotifications(
-		client,
-		constants.TELEGRAM_API_URL,
+		order_chan,
 	)
 }

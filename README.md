@@ -15,3 +15,7 @@
         - Token Largest Holders (1m)
 - Must add thorough tests.
 - Errors not attached to a specific token don't use the 'mint' field.
+
+- FIX INPUT USD PRICE FOR TRADES, it's considering the overall value for the trade.
+- SHOULD ADD TRADE CLOSING VALIDATION ON GET MARKET DATA TO CLOSE OPEN TRADES IF STOP IS HITTEN.
+- SHOULD ADD TRADE EXECUTED NOTIFICATION.

@@ -2,28 +2,26 @@ package db
 
 import (
 	"context"
-	"memecoin_trading_bot/app/constants"
 	"memecoin_trading_bot/app/entities"
 )
 
 func (d *DB) InsertTrade(ctx context.Context, trade entities.Trade) error {
 	_, err := d.db.ExecContext(ctx, `
 		INSERT INTO trade
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		trade.Mint,
-		trade.IssuedTradeStartAt.Format(constants.JAVASCRIPT_TIME_REP),
-		trade.TradeStartedAt.Format(constants.JAVASCRIPT_TIME_REP),
-		trade.IssuedTradeEndAt.Format(constants.JAVASCRIPT_TIME_REP),
-		trade.TradeEndedAt.Format(constants.JAVASCRIPT_TIME_REP),
-		trade.IssuedTradeStartTokenUsdPrice,
-		trade.IssuedTradeEndTokenUsdPrice,
-		trade.EntryTokenUsdPrice,
-		trade.ExitTokenUsdPrice,
-		trade.SolanaAmount,
-		trade.TotalFees,
-		trade.ExpectedTokenAmount,
-		trade.ExecutedTokenAmount,
+		trade.Operation,
+		trade.SlippageBPS,
+		trade.InputAmountLamports,
+		trade.ExpectedOutputAmountLamports,
+		trade.InputUSDPrice,
+		trade.TotalFeeLamports,
+		trade.ExpectedTokenUSDPrice,
+		trade.IssuedOrderAt,
+		trade.ReceivedOrderResponseAt,
+		trade.ExecutedOutputAmountLamports,
+		trade.ExecutedTokenUSDPrice,
 	)
 
 	if err != nil {
@@ -41,8 +39,10 @@ func (d *DB) GetLastPriceForToken(ctx context.Context, mint string) (float64, er
 		 FROM market_data
 		 WHERE price_usd IS NOT NULL
 		 	AND price_usd != 0.0
+			AND mint = ?
 		 ORDER BY priced_at DESC
 		 LIMIT 1;`,
+		mint,
 	)
 
 	var last_price float64
@@ -53,46 +53,26 @@ func (d *DB) GetLastPriceForToken(ctx context.Context, mint string) (float64, er
 	return last_price, nil
 }
 
-func (d *DB) GetOngoingTradesBalance(ctx context.Context) (float64, error) {
+func (d *DB) GetOngoingTradesBalanceLamports(ctx context.Context) (int, error) {
 	row := d.db.QueryRowContext(
 		ctx,
-		`SELECT 
-			COALESCE(SUM(solana_amount), 0)
-		 FROM trade 
-		 WHERE trade_ended_at IS NULL;`,
+		`WITH total_buys_aggregate AS (
+		 	SELECT 
+		 	       mint,
+			       SUM(input_amount_lamports) total
+		 	FROM trade 
+		 	WHERE operation = 'BUY'
+		 	GROUP BY mint
+		 	HAVING COUNT(*) = 1
+		)
+		SELECT
+			COALESCE(SUM(total), 0)
+		FROM total_buys_aggregate;`,
 	)
 
-	var total_amount float64
+	var total_amount int
 	if err := row.Scan(&total_amount); err != nil {
 		return total_amount, err
 	}
 	return total_amount, nil
-}
-
-func (d *DB) GetNewTradeMints(ctx context.Context) ([]string, error) {
-	rows, err := d.db.QueryContext(
-		ctx,
-		`SELECT
-			mint
-		 FROM token
-		 LEFT JOIN trade USING(mint)
-		 WHERE token.trade_opp IS TRUE
-		 	AND trade.mint IS NULL;`,
-	)
-
-	mints := make([]string, 0)
-
-	if err != nil {
-		return mints, err
-	}
-
-	for rows.Next() {
-		var mint string
-		if err = rows.Scan(&mint); err != nil {
-			return mints, err
-		}
-		mints = append(mints, mint)
-	}
-
-	return mints, nil
 }
