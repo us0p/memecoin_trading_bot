@@ -1,8 +1,11 @@
 package notification
 
 import (
+	"context"
 	"errors"
 	"log"
+	"memecoin_trading_bot/app/db"
+	"memecoin_trading_bot/app/entities"
 	"memecoin_trading_bot/app/utils"
 	"net/http"
 	"os"
@@ -35,6 +38,41 @@ func (n *Notifications) RecordError(token string, workflow Workflow, err error, 
 	}
 
 	(*n).ErrQueue[key] = append(queue, newErrorNotification(err, sev))
+}
+
+func (n *Notifications) RecordTradeExecution(
+	db_client *db.DB,
+	mint string,
+	operation entities.Operation,
+	total_sol_wallet float64,
+) {
+	ctx := context.Background()
+	trade_buy, err := db_client.GetTradeNotificationData(ctx, mint, entities.BUY)
+	if err != nil {
+		n.RecordError(
+			mint,
+			TradeNotification,
+			err,
+			Fatal,
+		)
+		return
+	}
+	if operation == entities.BUY {
+		n.recordTradeOpening(trade_buy, total_sol_wallet)
+		return
+	} else {
+		trade_sell, err := db_client.GetTradeNotificationData(ctx, mint, entities.SELL)
+		if err != nil {
+			n.RecordError(
+				mint,
+				TradeNotification,
+				err,
+				Fatal,
+			)
+			return
+		}
+		n.recordTradeClosing(trade_buy, trade_sell)
+	}
 }
 
 func (n *Notifications) SendNotifications(client *http.Client, telegram_url string) {

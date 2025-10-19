@@ -69,6 +69,8 @@ func executeTrade(
 	nf_state *notification.Notifications,
 	order entities.Order,
 ) {
+	ctx := context.Background()
+
 	pvk, err := utils.GetPrvKey()
 	if err != nil {
 		nf_state.RecordError(
@@ -80,7 +82,7 @@ func executeTrade(
 		return
 	}
 
-	tradeOrderCreation, err := getOrder(
+	tradeOrderCreation, wallet_ballance, err := getOrder(
 		http_client,
 		db_client,
 		pvk,
@@ -106,7 +108,6 @@ func executeTrade(
 		return
 	}
 
-	ctx := context.Background()
 	trade, err := executeOrder(ctx, http_client, db_client, &tradeOrderCreation)
 	if err != nil {
 		nf_state.RecordError(
@@ -127,6 +128,13 @@ func executeTrade(
 		)
 		return
 	}
+
+	nf_state.RecordTradeExecution(
+		db_client,
+		order.Mint,
+		order.Op,
+		wallet_ballance,
+	)
 }
 
 // Using the signed transaction. Executes the order with Jupiter API.
@@ -192,7 +200,7 @@ func signTransaction(pvk solana.PrivateKey, tradeOrder *tradeOrderCreation) erro
 	return nil
 }
 
-type orderCb func(*http.Client, *db.DB, solana.PrivateKey, string) (tradeOrderCreation, error)
+type orderCb func(*http.Client, *db.DB, solana.PrivateKey, string) (tradeOrderCreation, float64, error)
 
 type orderStrategies map[entities.Operation]orderCb
 
@@ -212,7 +220,7 @@ func getOrder(
 	db_client *db.DB,
 	pvk solana.PrivateKey,
 	order entities.Order,
-) (tradeOrderCreation, error) {
+) (tradeOrderCreation, float64, error) {
 	orderStrats := newOrderStrategies(buyStrategy, sellStrategy)
 	return orderStrats[order.Op](http_client, db_client, pvk, order.Mint)
 }
@@ -222,13 +230,13 @@ func buyStrategy(
 	db_client *db.DB,
 	pvk solana.PrivateKey,
 	mint string,
-) (tradeOrderCreation, error) {
-	sol_amount, err := riskmanagement.GetTradeAmount(
+) (tradeOrderCreation, float64, error) {
+	sol_amount, wallet_balance, err := riskmanagement.GetTradeAmount(
 		http_client,
 		db_client,
 	)
 	if err != nil {
-		return tradeOrderCreation{}, err
+		return tradeOrderCreation{}, wallet_balance, err
 	}
 	agg_resp, err := coinprovider.GetTradeTransaction(
 		http_client,
@@ -239,10 +247,10 @@ func buyStrategy(
 		utils.ToLamports(sol_amount),
 	)
 	if err != nil {
-		return tradeOrderCreation{}, err
+		return tradeOrderCreation{}, wallet_balance, err
 	}
 	if agg_resp.ErrorCode != 0 {
-		return tradeOrderCreation{}, fmt.Errorf(
+		return tradeOrderCreation{}, wallet_balance, fmt.Errorf(
 			"Received the following error for token %s while generating transaction: %s.",
 			mint,
 			agg_resp.ErrorMessage,
@@ -251,17 +259,17 @@ func buyStrategy(
 
 	totalFees, err := agg_resp.GetTotalFeeAmount()
 	if err != nil {
-		return tradeOrderCreation{}, err
+		return tradeOrderCreation{}, wallet_balance, err
 	}
 
 	solanaAmountAsInt, err := strconv.Atoi(agg_resp.InAmount)
 	if err != nil {
-		return tradeOrderCreation{}, err
+		return tradeOrderCreation{}, wallet_balance, err
 	}
 
 	expectedTokenAmountAsInt, err := strconv.Atoi(agg_resp.OutAmount)
 	if err != nil {
-		return tradeOrderCreation{}, err
+		return tradeOrderCreation{}, wallet_balance, err
 	}
 
 	return newTradeOrderCreation(
@@ -272,7 +280,7 @@ func buyStrategy(
 		expectedTokenAmountAsInt,
 		agg_resp.InUsdValue,
 		agg_resp.Transaction,
-	), nil
+	), wallet_balance, nil
 }
 
 func sellStrategy(
@@ -280,26 +288,26 @@ func sellStrategy(
 	db_client *db.DB,
 	pvk solana.PrivateKey,
 	mint string,
-) (tradeOrderCreation, error) {
+) (tradeOrderCreation, float64, error) {
 	wallet_holdings, err := coinprovider.GetOnChainWalletHoldings(
 		http_client,
 		constants.JUPITER_ULTRA_API_URL,
 		pvk.PublicKey().String(),
 	)
 	if err != nil {
-		return tradeOrderCreation{}, err
+		return tradeOrderCreation{}, 0, err
 	}
 
 	token_holdings, ok := wallet_holdings.Tokens[mint]
 	if !ok {
-		return tradeOrderCreation{}, fmt.Errorf(
+		return tradeOrderCreation{}, 0, fmt.Errorf(
 			"Token mint `%s` is not present in wallet holdings",
 			mint,
 		)
 	}
 	token_amount, err := strconv.Atoi(token_holdings.Amount)
 	if err != nil {
-		return tradeOrderCreation{}, err
+		return tradeOrderCreation{}, 0, err
 	}
 	agg_resp, err := coinprovider.GetTradeTransaction(
 		http_client,
@@ -310,10 +318,10 @@ func sellStrategy(
 		token_amount,
 	)
 	if err != nil {
-		return tradeOrderCreation{}, err
+		return tradeOrderCreation{}, 0, err
 	}
 	if agg_resp.ErrorCode != 0 {
-		return tradeOrderCreation{}, fmt.Errorf(
+		return tradeOrderCreation{}, 0, fmt.Errorf(
 			"Received the following error for token %s while generating transaction: %s.",
 			mint,
 			agg_resp.ErrorMessage,
@@ -322,17 +330,17 @@ func sellStrategy(
 
 	totalFees, err := agg_resp.GetTotalFeeAmount()
 	if err != nil {
-		return tradeOrderCreation{}, err
+		return tradeOrderCreation{}, 0, err
 	}
 
 	tokenAmountAsInt, err := strconv.Atoi(agg_resp.InAmount)
 	if err != nil {
-		return tradeOrderCreation{}, err
+		return tradeOrderCreation{}, 0, err
 	}
 
 	expectedSolanaAmountAsInt, err := strconv.Atoi(agg_resp.OutAmount)
 	if err != nil {
-		return tradeOrderCreation{}, err
+		return tradeOrderCreation{}, 0, err
 	}
 
 	return newTradeOrderCreation(
@@ -346,7 +354,7 @@ func sellStrategy(
 		expectedSolanaAmountAsInt,
 		agg_resp.InUsdValue,
 		agg_resp.Transaction,
-	), nil
+	), 0, nil
 }
 
 func logTradeSimulation(simulationResult coinprovider.TransactionSimulation) {

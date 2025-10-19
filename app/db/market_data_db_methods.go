@@ -75,6 +75,9 @@ func (d *DB) InsertTopHolderBulk(
 	ctx context.Context,
 	top_holders []entities.TopHolder,
 ) error {
+	if len(top_holders) == 0 {
+		return nil
+	}
 	placeholders := make([]string, len(top_holders))
 	args := make([]any, 0, len(top_holders)*6)
 	for idx, th := range top_holders {

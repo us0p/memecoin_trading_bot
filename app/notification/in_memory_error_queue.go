@@ -30,6 +30,7 @@ const (
 	PullMarketData              = "PULL_MARKET_DATA"
 	LargestHolders              = "LARGEST_HOLDERS"
 	ExecuteTrade                = "EXECUTE_TRADE"
+	TradeNotification           = "TRADE_NOTIFICATION"
 )
 
 type InMemoryErrorQueueKey struct {

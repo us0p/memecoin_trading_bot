@@ -28,3 +28,11 @@ type Trade struct {
 	ExecutedOutputAmountLamports int
 	ExecutedTokenUSDPrice        float64
 }
+
+type TradeNotificationData struct {
+	ReceivedOrderResponseAt time.Time
+	InputUSDPrice           float64
+	ExecutedTokenUSDPrice   float64
+	InputAmountLamports     int
+	Symbol                  string
+}

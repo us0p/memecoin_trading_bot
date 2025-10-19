@@ -7,36 +7,6 @@ import (
 	"strings"
 )
 
-func (d *DB) QueryActiveTokens(ctx context.Context) ([]entities.Token, error) {
-	var tokens []entities.Token
-
-	rows, err := d.db.QueryContext(ctx, `SELECT * FROM token WHERE trade_opp IS TRUE;`, nil)
-	if err != nil {
-		return tokens, err
-	}
-
-	for rows.Next() {
-		var token entities.Token
-		if err = rows.Scan(
-			&token.Mint,
-			&token.Symbol,
-			&token.MintEnabled,
-			&token.FreezeEnabled,
-			&token.CreatedAt,
-			&token.TradeOpp,
-			&token.Twitter,
-			&token.Site,
-			&token.Telegram,
-		); err != nil {
-			return tokens, err
-		}
-
-		tokens = append(tokens, token)
-	}
-
-	return tokens, nil
-}
-
 func (d *DB) GetLatestTradeOpp(ctx context.Context) ([]string, error) {
 	rows, err := d.db.QueryContext(
 		ctx,

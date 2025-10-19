@@ -15,9 +15,9 @@ func (n *Notifications) getRelevantErrors() []ErrorReport {
 	reports := make([]ErrorReport, 0)
 
 	for key, errs := range n.ErrQueue {
-		for _, err := range errs {
-			if !err.Sent && (err.ErrSeverity >= Core || isLongRunningError(err.StartedAt)) {
-				err.Sent = true
+		for idx, err := range errs {
+			if err.ErrSeverity >= Core && (!err.Sent || isLongRunningError(err.StartedAt)) {
+				errs[idx].Sent = true
 				reports = append(reports, ErrorReport{
 					InMemoryErrorQueueKey: key,
 					ErrorNotification:     err,

@@ -7,6 +7,7 @@ import (
 	"memecoin_trading_bot/app/db"
 	"memecoin_trading_bot/app/entities"
 	"memecoin_trading_bot/app/notification"
+	"memecoin_trading_bot/app/riskmanagement"
 	"net/http"
 )
 
@@ -41,6 +42,20 @@ func GetTradeOpportunityMarketData(
 			notification.Fatal,
 		)
 		return
+	}
+
+	orders, err := riskmanagement.CheckTradesToClose(db_client, mk_data)
+	if err != nil {
+		nf_state.RecordError(
+			"",
+			notification.PullMarketData,
+			err,
+			notification.Fatal,
+		)
+		return
+	}
+	for _, order := range orders {
+		orders_chan <- order
 	}
 
 	if err = db_client.InsertMarketDataBulk(ctx, mk_data); err != nil {

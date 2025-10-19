@@ -2,8 +2,102 @@ package db
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"memecoin_trading_bot/app/entities"
 )
+
+func (d *DB) GetTradeNotificationData(
+	ctx context.Context,
+	mint string,
+	op entities.Operation,
+) (entities.TradeNotificationData, error) {
+	row := d.db.QueryRowContext(
+		ctx,
+		`
+			SELECT	
+				symbol,
+				received_order_response_at,
+				input_usd_price,
+				executed_token_usd_price,
+				input_amount_lamports
+			FROM trade
+			JOIN token using(mint)
+			WHERE mint = ?
+				AND trade.operation = ?;
+		`,
+		mint,
+		op,
+	)
+
+	var trade_notification_data entities.TradeNotificationData
+	err := row.Scan(
+		&trade_notification_data.Symbol,
+		&trade_notification_data.ReceivedOrderResponseAt,
+		&trade_notification_data.InputUSDPrice,
+		&trade_notification_data.ExecutedTokenUSDPrice,
+		&trade_notification_data.InputAmountLamports,
+	)
+	return trade_notification_data, err
+}
+
+// pull coin only dispatches buy orders for new tokens that are trade opp.
+// market data pull data for the latest 10 trade op tokens, it doesn't matter if they have open trades.
+// this function should only return data for tokens that are not closed bc it's retun value
+// is used to issue sell orders.
+func (d *DB) GetOpenTradeForMint(ctx context.Context, mint string) (entities.Trade, error) {
+	row := d.db.QueryRowContext(
+		ctx,
+		`
+			SELECT
+				*
+			FROM trade
+			WHERE mint = ?
+			GROUP BY mint
+			HAVING COUNT(*) = 1;
+		`,
+		mint,
+	)
+
+	var trade entities.Trade
+	err := row.Scan(
+		&trade.Mint,
+		&trade.Operation,
+		&trade.SlippageBPS,
+		&trade.InputAmountLamports,
+		&trade.ExpectedOutputAmountLamports,
+		&trade.InputUSDPrice,
+		&trade.TotalFeeLamports,
+		&trade.ExpectedTokenUSDPrice,
+		&trade.IssuedOrderAt,
+		&trade.ReceivedOrderResponseAt,
+		&trade.ExecutedOutputAmountLamports,
+		&trade.ExecutedTokenUSDPrice,
+	)
+	if err != nil {
+		return trade, err
+	}
+	return trade, nil
+}
+
+func (d *DB) CheckExistingTradeForToken(ctx context.Context, mint string) (bool, error) {
+	row := d.db.QueryRowContext(
+		ctx,
+		`
+			SELECT
+				mint
+			FROM trade
+			WHERE mint = ?;
+		`,
+		mint,
+	)
+
+	var existing_token_mint string
+	if err := row.Scan(&existing_token_mint); errors.Is(err, sql.ErrNoRows) {
+		return true, nil
+	}
+	return false, nil
+}
 
 func (d *DB) InsertTrade(ctx context.Context, trade entities.Trade) error {
 	_, err := d.db.ExecContext(ctx, `
@@ -61,7 +155,6 @@ func (d *DB) GetOngoingTradesBalanceLamports(ctx context.Context) (int, error) {
 		 	       mint,
 			       SUM(input_amount_lamports) total
 		 	FROM trade 
-		 	WHERE operation = 'BUY'
 		 	GROUP BY mint
 		 	HAVING COUNT(*) = 1
 		)
