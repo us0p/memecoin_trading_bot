@@ -5,8 +5,8 @@
 - each RPC call costs 1 credit.
 
 ## TODO
+- Add dead token identification.
 - Must add thorough tests.
 - Errors not attached to a specific token don't use the 'mint' field.
 - Run notification system in a separate thread.
-- Add dead token identification.
 - should think of a way to clean intermitent errors when they fix themselves, to avoid error clustering.
