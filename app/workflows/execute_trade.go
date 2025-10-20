@@ -53,7 +53,25 @@ func TradeChannelProcesser(
 	order_chan <-chan entities.Order,
 ) {
 	for order := range order_chan {
-		log.Printf("Received new trade opportunity for address: %s\n", order.Mint)
+		log.Println("HERE")
+		is_order_processing, err := db_client.GetTradeTransactionProcessing(
+			context.Background(),
+			order,
+		)
+		log.Println(err)
+		if err != nil {
+			nf_state.RecordError(
+				order.Mint,
+				notification.ExecuteTrade,
+				err,
+				notification.Fatal,
+			)
+			return
+		}
+		if is_order_processing {
+			return
+		}
+		log.Printf("Received new trade opportunity for address: %s, %s\n", order.Mint, order.Op)
 		go executeTrade(
 			http_client,
 			db_client,
@@ -69,8 +87,10 @@ func executeTrade(
 	nf_state *notification.Notifications,
 	order entities.Order,
 ) {
+	log.Println("Starting trade execution")
 	ctx := context.Background()
 
+	log.Println("Getting Prv")
 	pvk, err := utils.GetPrvKey()
 	if err != nil {
 		nf_state.RecordError(
@@ -82,12 +102,14 @@ func executeTrade(
 		return
 	}
 
+	log.Println("Getting order...")
 	tradeOrderCreation, wallet_ballance, err := getOrder(
 		http_client,
 		db_client,
 		pvk,
 		order,
 	)
+	log.Println(err)
 	if err != nil {
 		nf_state.RecordError(
 			order.Mint,
@@ -98,6 +120,7 @@ func executeTrade(
 		return
 	}
 
+	log.Println("Signing transaction...")
 	if err = signTransaction(pvk, &tradeOrderCreation); err != nil {
 		nf_state.RecordError(
 			order.Mint,
@@ -108,6 +131,7 @@ func executeTrade(
 		return
 	}
 
+	log.Println("Executing order")
 	trade, err := executeOrder(ctx, http_client, db_client, &tradeOrderCreation)
 	if err != nil {
 		nf_state.RecordError(
@@ -119,7 +143,19 @@ func executeTrade(
 		return
 	}
 
+	log.Println("Inserting trade...")
 	if err = db_client.InsertTrade(ctx, trade); err != nil {
+		nf_state.RecordError(
+			order.Mint,
+			notification.ExecuteTrade,
+			err,
+			notification.Core,
+		)
+		return
+	}
+
+	log.Println("Fulfilling transaction...")
+	if err = db_client.FulfillTransaction(ctx, order); err != nil {
 		nf_state.RecordError(
 			order.Mint,
 			notification.ExecuteTrade,
@@ -294,6 +330,8 @@ func sellStrategy(
 		constants.JUPITER_ULTRA_API_URL,
 		pvk.PublicKey().String(),
 	)
+	log.Println(wallet_holdings)
+	log.Println(err)
 	if err != nil {
 		return tradeOrderCreation{}, 0, err
 	}

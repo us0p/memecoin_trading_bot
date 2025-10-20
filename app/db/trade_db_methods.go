@@ -7,6 +7,61 @@ import (
 	"memecoin_trading_bot/app/entities"
 )
 
+func (d *DB) FulfillTransaction(
+	ctx context.Context,
+	order entities.Order,
+) error {
+	_, err := d.db.ExecContext(
+		ctx,
+		`DELETE FROM trade_transaction_processing 
+		 WHERE ming = ? 
+			AND operation = ?;`,
+		order.Mint,
+		order.Op,
+	)
+	return err
+}
+
+func (d *DB) GetTradeTransactionProcessing(
+	ctx context.Context,
+	order entities.Order,
+) (bool, error) {
+	row := d.db.QueryRowContext(
+		ctx,
+		`SELECT 
+			mint 
+	 	 FROM trade_transaction_processing 
+		 WHERE mint = ? 
+		 	AND operation = ?
+			AND status <> 'processing';`,
+		order.Mint,
+		order.Op,
+	)
+
+	var mint string
+	if err := row.Scan(&mint); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return true, nil
+	}
+	return true, nil
+}
+
+func (d *DB) InsertTradeProcessing(
+	ctx context.Context,
+	order entities.Order,
+) error {
+	_, err := d.db.ExecContext(
+		ctx,
+		`INSERT INTO trade_transaction_processing 
+		 VALUES(?, ?, 'processing')`,
+		order.Mint,
+		order.Op,
+	)
+	return err
+}
+
 func (d *DB) GetTradeNotificationData(
 	ctx context.Context,
 	mint string,

@@ -55,6 +55,16 @@ func GetTradeOpportunityMarketData(
 		return
 	}
 	for _, order := range orders {
+		err := db_client.InsertTradeProcessing(ctx, order)
+		if err != nil {
+			nf_state.RecordError(
+				order.Mint,
+				notification.PullMarketData,
+				err,
+				notification.Fatal,
+			)
+			return
+		}
 		orders_chan <- order
 	}
 
