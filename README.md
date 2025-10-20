@@ -9,4 +9,4 @@
 - Errors not attached to a specific token don't use the 'mint' field.
 - Run notification system in a separate thread.
 - Add dead token identification.
-- Fix internet errors.
+- should think of a way to clean intermitent errors when they fix themselves, to avoid error clustering.

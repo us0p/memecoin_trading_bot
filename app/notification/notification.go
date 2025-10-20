@@ -16,6 +16,7 @@ type Notifications struct {
 	ErrQueue     InMemoryErrorQueue
 	TradesOpened []TradeOpening
 	TradesClosed []TradeClosing
+	mut          *sync.RWMutex
 }
 
 func NewNotificationState() Notifications {
@@ -23,12 +24,15 @@ func NewNotificationState() Notifications {
 		ErrQueue:     make(InMemoryErrorQueue),
 		TradesOpened: make([]TradeOpening, 0),
 		TradesClosed: make([]TradeClosing, 0),
+		mut:          &sync.RWMutex{},
 	}
 }
 
 func (n *Notifications) RecordError(token string, workflow Workflow, err error, sev Severity) {
 	key := newInMemoryErrorQueueKey(token, workflow)
 
+	n.mut.RLock()
+	defer n.mut.RUnlock()
 	queue := (*n).ErrQueue[key]
 
 	for _, errNotification := range queue {
@@ -37,6 +41,8 @@ func (n *Notifications) RecordError(token string, workflow Workflow, err error, 
 		}
 	}
 
+	n.mut.Lock()
+	defer n.mut.Unlock()
 	(*n).ErrQueue[key] = append(queue, newErrorNotification(err, sev))
 }
 
