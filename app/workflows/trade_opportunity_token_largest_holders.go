@@ -15,7 +15,7 @@ func GetTradeOpportunityLargestHolders(
 	http_client *http.Client,
 	db_client *db.DB,
 	nf_state *notification.Notifications,
-	_ chan<- entities.Order,
+	_ *TransactionProcessing,
 ) {
 	ctx := context.Background()
 	latest_trade_opp, err := db_client.GetLatestTradeOpp(ctx)

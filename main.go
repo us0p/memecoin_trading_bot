@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"memecoin_trading_bot/app/db"
-	"memecoin_trading_bot/app/entities"
 	"memecoin_trading_bot/app/job_scheduler"
 	"memecoin_trading_bot/app/notification"
 	"memecoin_trading_bot/app/workflows"
@@ -31,7 +30,7 @@ func main() {
 	client := http.DefaultClient
 	nf_state := notification.NewNotificationState()
 	job_scheduler := jobscheduler.NewJobSchedulerMap()
-	order_chan := make(chan entities.Order)
+	trade_processing := workflows.NewTransactionProcessing()
 
 	job_scheduler.RegisterJob(
 		workflows.PullTokens,
@@ -54,13 +53,13 @@ func main() {
 		client,
 		&db,
 		&nf_state,
-		order_chan,
+		&trade_processing,
 	)
 
 	workflows.TradeChannelProcesser(
 		client,
 		&db,
 		&nf_state,
-		order_chan,
+		&trade_processing,
 	)
 }

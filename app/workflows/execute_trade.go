@@ -13,6 +13,7 @@ import (
 	"memecoin_trading_bot/app/utils"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
@@ -46,29 +47,45 @@ func newTradeOrderCreation(
 	}
 }
 
+type TransactionProcessing struct {
+	OrderChan          chan entities.Order
+	OrderProcessingMap map[entities.Order]bool
+	mut                sync.RWMutex
+}
+
+func NewTransactionProcessing() TransactionProcessing {
+	return TransactionProcessing{
+		make(chan entities.Order),
+		make(map[entities.Order]bool),
+		sync.RWMutex{},
+	}
+}
+
+func (t *TransactionProcessing) IssueOrder(order entities.Order) {
+	if (*t).OrderProcessingMap[order] {
+		return
+	}
+
+	t.mut.Lock()
+	defer t.mut.Unlock()
+	(*t).OrderProcessingMap[order] = true
+	t.OrderChan <- order
+}
+
+func (t *TransactionProcessing) FulfillOrder(order entities.Order) {
+	t.mut.Lock()
+	defer t.mut.Unlock()
+	delete((*t).OrderProcessingMap, order)
+}
+
 func TradeChannelProcesser(
 	http_client *http.Client,
 	db_client *db.DB,
 	nf_state *notification.Notifications,
-	order_chan <-chan entities.Order,
+	tp *TransactionProcessing,
 ) {
-	for order := range order_chan {
-		log.Println("HERE")
-		is_order_processing, err := db_client.GetTradeTransactionProcessing(
-			context.Background(),
-			order,
-		)
-		log.Println(err)
-		if err != nil {
-			nf_state.RecordError(
-				order.Mint,
-				notification.ExecuteTrade,
-				err,
-				notification.Fatal,
-			)
-			return
-		}
-		if is_order_processing {
+	for order := range tp.OrderChan {
+		if tp.OrderProcessingMap[order] {
 			return
 		}
 		log.Printf("Received new trade opportunity for address: %s, %s\n", order.Mint, order.Op)
@@ -77,6 +94,7 @@ func TradeChannelProcesser(
 			db_client,
 			nf_state,
 			order,
+			tp,
 		)
 	}
 }
@@ -86,6 +104,7 @@ func executeTrade(
 	db_client *db.DB,
 	nf_state *notification.Notifications,
 	order entities.Order,
+	tp *TransactionProcessing,
 ) {
 	log.Println("Starting trade execution")
 	ctx := context.Background()
@@ -109,7 +128,6 @@ func executeTrade(
 		pvk,
 		order,
 	)
-	log.Println(err)
 	if err != nil {
 		nf_state.RecordError(
 			order.Mint,
@@ -154,16 +172,7 @@ func executeTrade(
 		return
 	}
 
-	log.Println("Fulfilling transaction...")
-	if err = db_client.FulfillTransaction(ctx, order); err != nil {
-		nf_state.RecordError(
-			order.Mint,
-			notification.ExecuteTrade,
-			err,
-			notification.Core,
-		)
-		return
-	}
+	tp.FulfillOrder(order)
 
 	nf_state.RecordTradeExecution(
 		db_client,
@@ -325,16 +334,22 @@ func sellStrategy(
 	pvk solana.PrivateKey,
 	mint string,
 ) (tradeOrderCreation, float64, error) {
-	wallet_holdings, err := coinprovider.GetOnChainWalletHoldings(
-		http_client,
-		constants.JUPITER_ULTRA_API_URL,
-		pvk.PublicKey().String(),
+	//wallet_holdings, err := coinprovider.GetOnChainWalletHoldings(
+	//	http_client,
+	//	constants.JUPITER_ULTRA_API_URL,
+	//	pvk.PublicKey().String(),
+	//)
+	wallet_holding_simulation, err := db_client.GetTokenHoldingWalletHoldingSimulation(
+		context.Background(),
+		mint,
 	)
-	log.Println(wallet_holdings)
-	log.Println(err)
 	if err != nil {
 		return tradeOrderCreation{}, 0, err
 	}
+	wallet_holdings, err := coinprovider.SimulateGetOnChainWalletHoldings(
+		mint,
+		wallet_holding_simulation,
+	)
 
 	token_holdings, ok := wallet_holdings.Tokens[mint]
 	if !ok {

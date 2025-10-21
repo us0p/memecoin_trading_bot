@@ -4,8 +4,8 @@ import (
 	"log"
 	"memecoin_trading_bot/app/constants"
 	"memecoin_trading_bot/app/db"
-	"memecoin_trading_bot/app/entities"
 	"memecoin_trading_bot/app/notification"
+	"memecoin_trading_bot/app/workflows"
 	"net/http"
 	"time"
 )
@@ -14,7 +14,7 @@ type Workflow func(
 	*http.Client,
 	*db.DB,
 	*notification.Notifications,
-	chan<- entities.Order,
+	*workflows.TransactionProcessing,
 )
 
 type Job struct {
@@ -44,10 +44,10 @@ func (j *JobSchedulerMap) jobExecutor(
 	workflow Workflow,
 	http_client *http.Client,
 	db_client *db.DB,
-	orders_chan chan<- entities.Order,
+	tp *workflows.TransactionProcessing,
 	nf_state *notification.Notifications,
 ) {
-	workflow(http_client, db_client, nf_state, orders_chan)
+	workflow(http_client, db_client, nf_state, tp)
 
 	nf_state.SendNotifications(
 		http_client,
@@ -59,7 +59,7 @@ func (j *JobSchedulerMap) jobsExecutor(
 	http_client *http.Client,
 	db_client *db.DB,
 	nf_state *notification.Notifications,
-	orders_chan chan<- entities.Order,
+	tp *workflows.TransactionProcessing,
 	interval Interval,
 ) {
 	for {
@@ -69,7 +69,7 @@ func (j *JobSchedulerMap) jobsExecutor(
 				job.Workflow,
 				http_client,
 				db_client,
-				orders_chan,
+				tp,
 				nf_state,
 			)
 		}
@@ -81,14 +81,14 @@ func (j *JobSchedulerMap) StartJobExecutor(
 	http_client *http.Client,
 	db_client *db.DB,
 	nf_state *notification.Notifications,
-	orders_chan chan<- entities.Order,
+	tp *workflows.TransactionProcessing,
 ) {
-	for interval, _ := range *j {
+	for interval := range *j {
 		go j.jobsExecutor(
 			http_client,
 			db_client,
 			nf_state,
-			orders_chan,
+			tp,
 			interval,
 		)
 	}

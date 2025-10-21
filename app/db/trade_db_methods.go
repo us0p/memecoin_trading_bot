@@ -7,59 +7,25 @@ import (
 	"memecoin_trading_bot/app/entities"
 )
 
-func (d *DB) FulfillTransaction(
+func (d *DB) GetTokenHoldingWalletHoldingSimulation(
 	ctx context.Context,
-	order entities.Order,
-) error {
-	_, err := d.db.ExecContext(
-		ctx,
-		`DELETE FROM trade_transaction_processing 
-		 WHERE ming = ? 
-			AND operation = ?;`,
-		order.Mint,
-		order.Op,
-	)
-	return err
-}
-
-func (d *DB) GetTradeTransactionProcessing(
-	ctx context.Context,
-	order entities.Order,
-) (bool, error) {
+	mint string,
+) (string, error) {
 	row := d.db.QueryRowContext(
 		ctx,
-		`SELECT 
-			mint 
-	 	 FROM trade_transaction_processing 
-		 WHERE mint = ? 
-		 	AND operation = ?
-			AND status <> 'processing';`,
-		order.Mint,
-		order.Op,
+		`
+			SELECT
+				CAST(expected_output_amount_lamports AS VARCHAR)
+			FROM trade
+			WHERE mint = ?
+				AND operation = 'buy';
+		`,
+		mint,
 	)
 
-	var mint string
-	if err := row.Scan(&mint); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return false, nil
-		}
-		return true, nil
-	}
-	return true, nil
-}
-
-func (d *DB) InsertTradeProcessing(
-	ctx context.Context,
-	order entities.Order,
-) error {
-	_, err := d.db.ExecContext(
-		ctx,
-		`INSERT INTO trade_transaction_processing 
-		 VALUES(?, ?, 'processing')`,
-		order.Mint,
-		order.Op,
-	)
-	return err
+	var wallet_holding_simulation string
+	err := row.Scan(&wallet_holding_simulation)
+	return wallet_holding_simulation, err
 }
 
 func (d *DB) GetTradeNotificationData(

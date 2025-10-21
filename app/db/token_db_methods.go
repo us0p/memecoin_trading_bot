@@ -10,7 +10,7 @@ import (
 func (d *DB) GetLatestTradeOpp(ctx context.Context) ([]string, error) {
 	rows, err := d.db.QueryContext(
 		ctx,
-		`SELECT 
+		`SELECT
 			mint 
 		 FROM token 
 		 WHERE trade_opp IS TRUE

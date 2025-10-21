@@ -31,8 +31,6 @@ func NewNotificationState() Notifications {
 func (n *Notifications) RecordError(token string, workflow Workflow, err error, sev Severity) {
 	key := newInMemoryErrorQueueKey(token, workflow)
 
-	n.mut.RLock()
-	defer n.mut.RUnlock()
 	queue := (*n).ErrQueue[key]
 
 	for _, errNotification := range queue {

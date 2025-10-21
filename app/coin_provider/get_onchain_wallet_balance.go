@@ -45,3 +45,13 @@ func GetOnChainWalletHoldings(
 
 	return wallet_holdings, nil
 }
+
+func SimulateGetOnChainWalletHoldings(mint, wallet_holding_simulation string) (JupiterOnChainWalletHoldings, error) {
+	token_map := make(map[string]WalletHoldingToken)
+	token_map[mint] = WalletHoldingToken{
+		Amount: wallet_holding_simulation,
+	}
+	return JupiterOnChainWalletHoldings{
+		Tokens: token_map,
+	}, nil
+}

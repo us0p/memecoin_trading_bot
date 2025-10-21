@@ -25,7 +25,7 @@ func PullTokens(
 	http_client *http.Client,
 	db_client *db.DB,
 	nf_state *notification.Notifications,
-	orders_chan chan<- entities.Order,
+	tp *TransactionProcessing,
 ) {
 	ctx := context.Background()
 
@@ -132,10 +132,10 @@ func PullTokens(
 		}
 		isTradeOpp := validateTradeOpportunity(*token_mk_data)
 		if isTradeOpp {
-			orders_chan <- entities.Order{
+			tp.IssueOrder(entities.Order{
 				Mint: newToken.Mint,
 				Op:   entities.BUY,
-			}
+			})
 		}
 
 		token_authority_data := get_dt_for_token(

@@ -5,7 +5,6 @@ import (
 	coinprovider "memecoin_trading_bot/app/coin_provider"
 	"memecoin_trading_bot/app/constants"
 	"memecoin_trading_bot/app/db"
-	"memecoin_trading_bot/app/entities"
 	"memecoin_trading_bot/app/notification"
 	"memecoin_trading_bot/app/riskmanagement"
 	"net/http"
@@ -15,7 +14,7 @@ func GetTradeOpportunityMarketData(
 	http_client *http.Client,
 	db_client *db.DB,
 	nf_state *notification.Notifications,
-	orders_chan chan<- entities.Order,
+	tp *TransactionProcessing,
 ) {
 	ctx := context.Background()
 	latest_trade_opp, err := db_client.GetLatestTradeOpp(ctx)
@@ -55,17 +54,7 @@ func GetTradeOpportunityMarketData(
 		return
 	}
 	for _, order := range orders {
-		err := db_client.InsertTradeProcessing(ctx, order)
-		if err != nil {
-			nf_state.RecordError(
-				order.Mint,
-				notification.PullMarketData,
-				err,
-				notification.Fatal,
-			)
-			return
-		}
-		orders_chan <- order
+		tp.IssueOrder(order)
 	}
 
 	if err = db_client.InsertMarketDataBulk(ctx, mk_data); err != nil {
