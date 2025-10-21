@@ -22,6 +22,7 @@ import (
 type tradeOrderCreation struct {
 	Trade       entities.Trade
 	Transaction string
+	RequestId   string
 }
 
 func newTradeOrderCreation(
@@ -31,7 +32,8 @@ func newTradeOrderCreation(
 	totalFeeLamport,
 	expectedOutputAmountLamports int,
 	inputUSDPrice float64,
-	transaction string,
+	transaction,
+	requestId string,
 ) tradeOrderCreation {
 	return tradeOrderCreation{
 		Trade: entities.Trade{
@@ -44,31 +46,39 @@ func newTradeOrderCreation(
 			InputUSDPrice:                inputUSDPrice,
 		},
 		Transaction: transaction,
+		RequestId:   requestId,
 	}
 }
 
+type OrderStatus string
+
+const (
+	processing OrderStatus = "processing"
+	received               = "received"
+)
+
 type TransactionProcessing struct {
 	OrderChan          chan entities.Order
-	OrderProcessingMap map[entities.Order]bool
+	OrderProcessingMap map[entities.Order]OrderStatus
 	mut                sync.RWMutex
 }
 
 func NewTransactionProcessing() TransactionProcessing {
 	return TransactionProcessing{
 		make(chan entities.Order),
-		make(map[entities.Order]bool),
+		make(map[entities.Order]OrderStatus),
 		sync.RWMutex{},
 	}
 }
 
 func (t *TransactionProcessing) IssueOrder(order entities.Order) {
-	if (*t).OrderProcessingMap[order] {
+	if _, ok := (*t).OrderProcessingMap[order]; ok {
 		return
 	}
 
 	t.mut.Lock()
 	defer t.mut.Unlock()
-	(*t).OrderProcessingMap[order] = true
+	(*t).OrderProcessingMap[order] = received
 	t.OrderChan <- order
 }
 
@@ -85,9 +95,10 @@ func TradeChannelProcesser(
 	tp *TransactionProcessing,
 ) {
 	for order := range tp.OrderChan {
-		if tp.OrderProcessingMap[order] {
+		if tp.OrderProcessingMap[order] == processing {
 			return
 		}
+		tp.OrderProcessingMap[order] = processing
 		log.Printf("Received new trade opportunity for address: %s, %s\n", order.Mint, order.Op)
 		go executeTrade(
 			http_client,
@@ -191,14 +202,20 @@ func executeOrder(
 ) (entities.Trade, error) {
 	tradeOrder.Trade.IssuedOrderAt = time.Now()
 
-	simu, err := coinprovider.SimulateTransactionExecution(
+	order, err := coinprovider.ExecuteTransaction(
 		http_client,
-		constants.HELIUS_API_URL,
+		constants.JUPITER_ULTRA_API_URL,
 		tradeOrder.Transaction,
+		tradeOrder.RequestId,
 	)
 	if err != nil {
 		return entities.Trade{}, err
 	}
+	exec_output_amout_lamp, err := strconv.Atoi(order.OutputAmountResut)
+	if err != nil {
+		return entities.Trade{}, err
+	}
+	tradeOrder.Trade.ExecutedOutputAmountLamports = exec_output_amout_lamp
 
 	tradeOrder.Trade.ReceivedOrderResponseAt = time.Now()
 
@@ -219,8 +236,6 @@ func executeOrder(
 	}
 
 	tradeOrder.Trade.ExecutedTokenUSDPrice = mk_data[0].PriceUsd
-
-	logTradeSimulation(simu)
 
 	return tradeOrder.Trade, nil
 }
@@ -325,6 +340,7 @@ func buyStrategy(
 		expectedTokenAmountAsInt,
 		agg_resp.InUsdValue,
 		agg_resp.Transaction,
+		agg_resp.RequestId,
 	), wallet_balance, nil
 }
 
@@ -334,22 +350,14 @@ func sellStrategy(
 	pvk solana.PrivateKey,
 	mint string,
 ) (tradeOrderCreation, float64, error) {
-	//wallet_holdings, err := coinprovider.GetOnChainWalletHoldings(
-	//	http_client,
-	//	constants.JUPITER_ULTRA_API_URL,
-	//	pvk.PublicKey().String(),
-	//)
-	wallet_holding_simulation, err := db_client.GetTokenHoldingWalletHoldingSimulation(
-		context.Background(),
-		mint,
+	wallet_holdings, err := coinprovider.GetOnChainWalletHoldings(
+		http_client,
+		constants.JUPITER_ULTRA_API_URL,
+		pvk.PublicKey().String(),
 	)
 	if err != nil {
 		return tradeOrderCreation{}, 0, err
 	}
-	wallet_holdings, err := coinprovider.SimulateGetOnChainWalletHoldings(
-		mint,
-		wallet_holding_simulation,
-	)
 
 	token_holdings, ok := wallet_holdings.Tokens[mint]
 	if !ok {
@@ -407,6 +415,7 @@ func sellStrategy(
 		expectedSolanaAmountAsInt,
 		agg_resp.InUsdValue,
 		agg_resp.Transaction,
+		agg_resp.RequestId,
 	), 0, nil
 }
 

@@ -90,7 +90,7 @@ func (n *Notifications) closeTradeReport() []string {
 			- *Symbol*: %s
 			- *Closed at*: %s
 			- *Duration*: %s
-			- *Profit %%*: %.2f%%
+			- *Profit*: %.2f%%
 			- *Operation Status:* %s`,
 			t.Symbol,
 			t.ClosedAt.Format(constants.NOTIFICATION_TIME_REP),
@@ -100,7 +100,7 @@ func (n *Notifications) closeTradeReport() []string {
 		)
 	}
 
-	n.TradesOpened = make([]TradeOpening, 0)
+	(*n).TradesClosed = make([]TradeClosing, 0)
 
 	return reports
 }
