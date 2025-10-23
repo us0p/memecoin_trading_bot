@@ -17,6 +17,8 @@ func (n *Notifications) getRelevantErrors() []ErrorReport {
 	for key, errs := range n.ErrQueue {
 		for idx, err := range errs {
 			if err.ErrSeverity >= Core && (!err.Sent || isLongRunningError(err.StartedAt)) {
+				n.mut.Lock()
+				defer n.mut.Unlock()
 				errs[idx].Sent = true
 				reports = append(reports, ErrorReport{
 					InMemoryErrorQueueKey: key,
