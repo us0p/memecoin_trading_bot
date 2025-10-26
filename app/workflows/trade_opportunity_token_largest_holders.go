@@ -29,6 +29,10 @@ func GetTradeOpportunityLargestHolders(
 		return
 	}
 
+	if len(latest_trade_opp) == 0 {
+		return
+	}
+
 	tokens_top_holders := make([]entities.TopHolder, len(latest_trade_opp))
 	var wg sync.WaitGroup
 	for idx, mint := range latest_trade_opp {
