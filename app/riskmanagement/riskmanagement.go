@@ -63,10 +63,10 @@ func CheckTradesToClose(db_client *db.DB, tokens_mk_data []coinprovider.MarketDa
 			}
 			return orders, err
 		}
-		if trade.ExecutedTokenUSDPrice*1.5 <= token_mk_data.PriceUsd {
+		if trade.ExecutedTokenUSDPrice*1.1 <= token_mk_data.PriceUsd {
 			orders = append(orders, entities.Order{Mint: token_mk_data.Mint, Op: entities.SELL})
 		}
-		if trade.ExecutedTokenUSDPrice*0.75 >= token_mk_data.PriceUsd {
+		if trade.ExecutedTokenUSDPrice*0.95 >= token_mk_data.PriceUsd {
 			orders = append(orders, entities.Order{Mint: token_mk_data.Mint, Op: entities.SELL})
 		}
 	}

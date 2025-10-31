@@ -15,10 +15,10 @@ type WalletHoldingToken struct {
 }
 
 type JupiterOnChainWalletHoldings struct {
-	Amount         string                        `json:"amount"`
-	UiAmount       float64                       `json:"uiAmount"`
-	UiAmountString string                        `json:"uiAmountString"`
-	Tokens         map[string]WalletHoldingToken `json:"tokens"`
+	Amount         string                          `json:"amount"`
+	UiAmount       float64                         `json:"uiAmount"`
+	UiAmountString string                          `json:"uiAmountString"`
+	Tokens         map[string][]WalletHoldingToken `json:"tokens"`
 }
 
 func GetOnChainWalletHoldings(
@@ -47,10 +47,10 @@ func GetOnChainWalletHoldings(
 }
 
 func SimulateGetOnChainWalletHoldings(mint, wallet_holding_simulation string) (JupiterOnChainWalletHoldings, error) {
-	token_map := make(map[string]WalletHoldingToken)
-	token_map[mint] = WalletHoldingToken{
+	token_map := make(map[string][]WalletHoldingToken)
+	token_map[mint] = []WalletHoldingToken{{
 		Amount: wallet_holding_simulation,
-	}
+	}}
 	return JupiterOnChainWalletHoldings{
 		Tokens: token_map,
 	}, nil

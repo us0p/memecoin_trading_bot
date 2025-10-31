@@ -2,6 +2,7 @@ package workflows
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"log"
 	coinprovider "memecoin_trading_bot/app/coin_provider"
@@ -257,6 +258,13 @@ func signTransaction(pvk solana.PrivateKey, tradeOrder *tradeOrderCreation) erro
 	if err != nil {
 		return err
 	}
+
+	signedTxBytes, err := tx.MarshalBinary()
+	if err != nil {
+		return err
+	}
+
+	*&tradeOrder.Transaction = base64.StdEncoding.EncodeToString(signedTxBytes)
 	return nil
 }
 
@@ -355,6 +363,7 @@ func sellStrategy(
 		constants.JUPITER_ULTRA_API_URL,
 		pvk.PublicKey().String(),
 	)
+	log.Println(constants.JUPITER_ULTRA_API_URL, pvk.PublicKey().String())
 	if err != nil {
 		return tradeOrderCreation{}, 0, err
 	}
@@ -366,7 +375,7 @@ func sellStrategy(
 			mint,
 		)
 	}
-	token_amount, err := strconv.Atoi(token_holdings.Amount)
+	token_amount, err := strconv.Atoi(token_holdings[0].Amount)
 	if err != nil {
 		return tradeOrderCreation{}, 0, err
 	}

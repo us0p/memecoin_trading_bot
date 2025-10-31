@@ -130,13 +130,18 @@ func PullTokens(
 			)
 			return
 		}
-		isTradeOpp := validateTradeOpportunity(*token_mk_data)
-		if isTradeOpp {
-			tp.IssueOrder(entities.Order{
-				Mint: newToken.Mint,
-				Op:   entities.BUY,
-			})
-		}
+		//isTradeOpp := validateTradeOpportunity(*token_mk_data)
+		//if isTradeOpp {
+		//	tp.IssueOrder(entities.Order{
+		//		Mint: newToken.Mint,
+		//		Op:   entities.BUY,
+		//	})
+		//}
+
+		tp.IssueOrder(entities.Order{
+			Mint: newToken.Mint,
+			Op:   entities.BUY,
+		})
 
 		token_authority_data := get_dt_for_token(
 			token_authorities,
@@ -159,7 +164,7 @@ func PullTokens(
 			CreatedAt:     time_rep,
 			MintEnabled:   token_authority_data.MintAuthority != "",
 			FreezeEnabled: token_authority_data.FreezeAuthority != "",
-			TradeOpp:      isTradeOpp,
+			TradeOpp:      true,
 			Twitter:       token_mk_data.Twitter,
 			Site:          token_mk_data.Website,
 			Telegram:      token_mk_data.Telegram,
